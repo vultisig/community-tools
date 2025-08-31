@@ -92,7 +92,7 @@ I also included:
 
 For `ETH` it will return something like this:
 ```
-WIF Private Keys:
+Private Keys:
 ethereum:2abbfad6ea48607d9665eXXXXXbed21204cfe479fdec40d33058c0a4e3feb
 ```
 
