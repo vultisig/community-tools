@@ -10,18 +10,19 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-**September 2025**: Successfully set up the Vultisig Share Decoder in Replit environment:
+**September 2025**: Successfully set up and simplified the Vultisig Share Decoder in Replit environment:
 - Configured Go 1.24 development environment
 - Modified server to run on port 5000 with 0.0.0.0 binding for Replit proxy compatibility
 - Built web server component successfully
+- Removed CLI components to focus solely on WASM generation and static file serving
+- Simplified build system to target only web interface deployment
 - Configured deployment for autoscale mode with proper build and run commands
 - Application now running and accessible via web interface
 
 ## System Architecture
 
 ### Multi-Platform Deployment Architecture
-The system uses a shared core business logic written in Go with three distinct entry points:
-- **CLI Mode**: Terminal-based application using Urfave CLI framework
+The system uses a shared core business logic written in Go with two distinct entry points:
 - **Web Server Mode**: HTTP server serving static files for browser-based processing
 - **WASM Mode**: WebAssembly compilation for direct JavaScript integration
 
