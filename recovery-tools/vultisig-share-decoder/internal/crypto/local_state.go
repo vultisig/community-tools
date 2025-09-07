@@ -1,4 +1,4 @@
-package tss
+package crypto
 
 import (
   "github.com/bnb-chain/tss-lib/v2/ecdsa/keygen"

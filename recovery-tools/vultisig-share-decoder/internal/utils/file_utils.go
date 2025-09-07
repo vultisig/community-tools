@@ -1,4 +1,4 @@
-package fileutils
+package utils
 
 import (
         "encoding/base64"
@@ -12,8 +12,6 @@ import (
         "github.com/golang/protobuf/proto"
         "github.com/vultisig/commondata/go/vultisig/vault/v1"
 
-        "main/internal/crypto"
-        "main/internal/utils"
         "main/internal/crypto"
 )
 

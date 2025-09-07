@@ -1,4 +1,4 @@
-package tss
+package crypto
 
 type Service interface {
   // KeygenECDSA generates a new ECDSA keypair

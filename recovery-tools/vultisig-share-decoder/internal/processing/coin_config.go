@@ -1,4 +1,4 @@
-package keyhandlers
+package processing
 
 import (
 	"strings"

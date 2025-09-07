@@ -13,7 +13,6 @@ import (
         "main/internal/utils"
         "main/internal/processing"
         "fmt"
-        "main/internal/processing"
 )
 
 func main() {
@@ -30,7 +29,7 @@ func main() {
         // args[1] = passwords
         // args[2] = filenames
         // args[3] = scheme (optional)
-        var fileInfos []types.FileInfo
+        var fileInfos []utils.FileInfo
         passwords := make([]string, args[1].Length())
 
         // Convert file data and create FileInfo objects
@@ -44,7 +43,7 @@ func main() {
             // Get the actual filename from the third argument
             filename := args[2].Index(i).String()
 
-            fileInfos = append(fileInfos, types.FileInfo{
+            fileInfos = append(fileInfos, utils.FileInfo{
                 Name:    filename,
                 Content: data,
             })
@@ -56,7 +55,7 @@ func main() {
         }
 
         // Process the files with thresholds
-        result, err := shared.ProcessFileContent(fileInfos, passwords, types.Web)
+        result, err := processing.ProcessFileContent(fileInfos, passwords, utils.Web)
         if err != nil {
             return err.Error()
         }
@@ -86,8 +85,8 @@ func main() {
         var outputBuilder strings.Builder
 
         // Get ECDSA supported coins and process them
-        ecdsaCoins := keyhandlers.GetSupportedCoins()
-        err = keyhandlers.ProcessRootKeyForCoins(rootPrivateKeyBytes, rootChainCodeBytes, ecdsaCoins, &outputBuilder)
+        ecdsaCoins := processing.GetSupportedCoins()
+        err = processing.ProcessRootKeyForCoins(rootPrivateKeyBytes, rootChainCodeBytes, ecdsaCoins, &outputBuilder)
         if err != nil {
             return fmt.Sprintf("Error processing ECDSA keys: %v", err)
         }
@@ -108,8 +107,8 @@ func main() {
             }
 
             // Get EdDSA coins and process them
-            eddsaCoins := keyhandlers.GetEdDSACoins()
-            err = keyhandlers.ProcessEdDSAKeyForCoins(eddsaPrivateKeyBytes, eddsaPublicKeyBytes, eddsaCoins, &outputBuilder)
+            eddsaCoins := processing.GetEdDSACoins()
+            err = processing.ProcessEdDSAKeyForCoins(eddsaPrivateKeyBytes, eddsaPublicKeyBytes, eddsaCoins, &outputBuilder)
             if err != nil {
                 return fmt.Sprintf("Error processing EdDSA keys: %v", err)
             }
@@ -140,8 +139,8 @@ func main() {
         }
 
         // Find the specific coin configuration
-        supportedCoins := keyhandlers.GetSupportedCoins()
-        var targetCoin *keyhandlers.CoinConfig
+        supportedCoins := processing.GetSupportedCoins()
+        var targetCoin *processing.CoinConfig
         for _, coin := range supportedCoins {
             if coin.Name == coinType {
                 targetCoin = &coin
@@ -155,7 +154,7 @@ func main() {
 
         // Process the root key for the specific coin
         var outputBuilder strings.Builder
-        err = keyhandlers.ProcessRootKeyForCoins(rootPrivateKeyBytes, rootChainCodeBytes, []keyhandlers.CoinConfig{*targetCoin}, &outputBuilder)
+        err = keyhandlers.ProcessRootKeyForCoins(rootPrivateKeyBytes, rootChainCodeBytes, []processing.CoinConfig{*targetCoin}, &outputBuilder)
         if err != nil {
             return fmt.Sprintf("Error processing key for %s: %v", coinType, err)
         }
@@ -165,7 +164,7 @@ func main() {
 
     // GetSupportedCoins - returns list of supported cryptocurrencies
     js.Global().Set("GetSupportedCoins", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-        supportedCoins := keyhandlers.GetSupportedCoins()
+        supportedCoins := processing.GetSupportedCoins()
         
         // Convert to JavaScript array
         result := make([]interface{}, len(supportedCoins))
