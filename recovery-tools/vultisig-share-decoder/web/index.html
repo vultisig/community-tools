@@ -55,12 +55,37 @@
                 </button>
             </div>
 
-            <section id="results" class="results-section debug-section">
+            <section id="results" class="results-section">
+                <div id="shareDetailsSection" class="result-section" style="display: none;">
+                    <h3>Share Details</h3>
+                    <div id="shareDetailsContent" class="share-details-content"></div>
+                </div>
+
+                <div id="publicKeysSection" class="result-section" style="display: none;">
+                    <h3>Public Keys</h3>
+                    <div id="publicKeysContent" class="public-keys-content"></div>
+                </div>
+
+                <div id="rootKeySection" class="result-section" style="display: none;">
+                    <h3 class="toggle-header sensitive-data" onclick="toggleSection('rootKeyContent')">
+                        Root Key Information <span class="security-warning">🔐 Sensitive</span> <span class="toggle-arrow">▼</span>
+                    </h3>
+                    <div id="rootKeyContent" class="content sensitive-content" style="display: none;">
+                        <div id="rootKeyContentInner"></div>
+                    </div>
+                </div>
+
+                <div id="coinKeysSection" class="result-section" style="display: none;">
+                    <h3>Cryptocurrency Keys</h3>
+                    <div id="coinKeysContent" class="coin-keys-content"></div>
+                </div>
             </section>
 
             <section class="debug-section">
-                <h3>Debug Output</h3>
-                <pre id="debugOutput" class="debug-output"></pre>
+                <h3 class="toggle-header" onclick="toggleSection('debugOutput')">
+                    Debug Output <span class="toggle-arrow">▼</span>
+                </h3>
+                <pre id="debugOutput" class="debug-output content" style="display: none;"></pre>
             </section>
 
             <section class="results-section debug-section">

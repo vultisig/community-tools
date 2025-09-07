@@ -179,12 +179,6 @@ h1 {
 }
 
 /* Debug Section */
-.debug-section {
-  background: rgba(0, 0, 0, 0.2);
-  padding: 1.5rem;
-  border-radius: var(--border-radius);
-  margin-bottom: 2rem;
-}
 
 .debug-output {
     font-family: 'Fira Code', monospace;
@@ -194,6 +188,37 @@ h1 {
     max-width: 100%;            /* Ensures content doesn't overflow container */
     overflow-x: auto;           /* Adds horizontal scroll if needed */
     color: var(--accent-color);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 15px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: 10px;
+}
+
+.debug-section .toggle-header {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+    margin-bottom: 10px;
+}
+
+.debug-section .toggle-header:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding-left: 10px;
+    padding-right: 10px;
+}
+
+.debug-section {
+    margin: 20px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* Footer Styles */
@@ -549,4 +574,280 @@ pre {
 /* Utility Classes */
 .hidden {
   display: none;
+}
+
+/* Structured Results Display */
+.result-section {
+    margin: 16px 0;
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.result-section h3 {
+    margin-top: 0;
+    color: var(--primary-color);
+    border-bottom: 2px solid var(--primary-color);
+    padding-bottom: 8px;
+    font-size: 18px;
+}
+
+/* Share Details Styling */
+.share-detail-card {
+    background: rgba(255, 255, 255, 0.08);
+    padding: 15px;
+    margin: 10px 0;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.share-detail-card h4 {
+    margin: 0 0 15px 0;
+    color: var(--text-color);
+}
+
+.detail-item {
+    display: flex;
+    margin: 8px 0;
+    align-items: center;
+}
+
+.detail-label {
+    font-weight: 600;
+    color: var(--accent-color);
+    min-width: 120px;
+    margin-right: 10px;
+}
+
+.detail-value {
+    font-family: 'Courier New', monospace;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 4px 8px;
+    border-radius: 4px;
+    word-break: break-all;
+    color: var(--text-color);
+}
+
+/* Key Display Styling */
+.key-item {
+    margin: 12px 0;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    border-left: 4px solid var(--primary-color);
+}
+
+.key-item.sensitive {
+    border-left-color: var(--error-color);
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.key-label {
+    font-weight: 600;
+    color: var(--text-color);
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.key-value {
+    font-family: 'Courier New', monospace;
+    background: rgba(0, 0, 0, 0.4);
+    padding: 8px;
+    border-radius: 4px;
+    word-break: break-all;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-color);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.key-value.copyable {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.key-value.copyable:hover {
+    background: rgba(0, 255, 204, 0.1);
+}
+
+.copy-icon {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.key-value.copyable:hover .copy-icon {
+    opacity: 1;
+}
+
+/* Coin Cards Styling */
+.coin-card {
+    background: rgba(255, 255, 255, 0.05);
+    margin: 15px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.coin-header {
+    padding: 12px 16px;
+    background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
+    color: var(--secondary-color);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: background-color 0.2s;
+}
+
+.coin-header:hover {
+    background: linear-gradient(135deg, var(--accent-color), var(--primary-color));
+}
+
+.coin-name-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.coin-icon {
+    margin-right: 8px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.crypto-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.crypto-icon-fallback {
+    font-size: 20px;
+    display: inline-block;
+}
+
+.coin-name {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.coin-address {
+    font-size: 12px;
+    opacity: 0.9;
+    font-family: 'Courier New', monospace;
+    word-break: break-all;
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.coin-details {
+    padding: 16px;
+}
+
+.toggle-arrow {
+    font-size: 18px;
+    transition: transform 0.3s;
+}
+
+.toggle-arrow.rotated {
+    transform: rotate(180deg);
+}
+
+/* Security Warning */
+.security-warning {
+    background: var(--error-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    margin-left: 10px;
+}
+
+.sensitive-data {
+    color: var(--error-color) !important;
+}
+
+.sensitive-content {
+    background: rgba(255, 68, 68, 0.05);
+    border: 1px solid rgba(255, 68, 68, 0.2);
+}
+
+/* Action Buttons */
+.action-buttons {
+    margin: 20px 0;
+    text-align: center;
+}
+
+.check-balance-btn {
+    background: var(--success-color);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.check-balance-btn:hover {
+    background: #00a043;
+    transform: translateY(-1px);
+}
+
+/* Responsive Design for New Components */
+@media (max-width: 768px) {
+    .detail-item {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .detail-label {
+        min-width: auto;
+        margin-bottom: 5px;
+    }
+    
+    .coin-header {
+        padding: 10px 12px;
+    }
+    
+    .coin-name {
+        font-size: 14px;
+    }
+    
+    .coin-address {
+        max-width: 200px;
+    }
+    
+    .coin-icon .crypto-icon {
+        width: 20px;
+        height: 20px;
+    }
+    
+    .coin-icon .crypto-icon-fallback {
+        font-size: 16px;
+    }
+    
+    .key-value {
+        font-size: 10px;
+        padding: 6px;
+    }
+    
+    .result-section {
+        margin: 12px 0;
+        padding: 12px;
+    }
+    
+    .result-section h3 {
+        font-size: 16px;
+    }
 }
