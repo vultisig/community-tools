@@ -130,18 +130,6 @@ func DecryptVault(vaultContainer *v1.VaultContainer, inputFileName string, passw
     return nil, fmt.Errorf("failed to decode vault: %w", err)
   }
 
-  //If no password is provided, prompt for one
-  if vaultContainer.IsEncrypted && source == types.CommandLine {
-    if password == "" {
-      fmt.Printf("Enter password to decrypt the vault (%s): ", inputFileName)
-      bytePassword, err := term.ReadPassword(int(syscall.Stdin))
-      if err != nil {
-        return nil, fmt.Errorf("failed to read password: %w", err)
-      }
-      password = string(bytePassword)
-    }
-  }
-
   // Attempt to decrypt the vault using the provided or entered password
   decryptedVaultData, err := DecryptVaultHelper(password, vaultData)
   if err != nil {
