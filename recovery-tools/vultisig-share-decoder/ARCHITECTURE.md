@@ -69,15 +69,6 @@ The Vultisig Share Decoder is a multi-platform application that recovers cryptog
 
 ### 1. Entry Points (`cmd/`)
 
-#### CLI Mode (`cmd/cli/`)
-- **Purpose**: Command-line interface for server/desktop environments (GG20 only)
-- **Build Tag**: `cli`
-- **Key Files**: 
-  - `main.go`: CLI app configuration using urfave/cli
-  - `actions.go`: CLI-specific actions (decrypt, recover)
-- **Usage**: `./dist/cli recover --files "share1.vult" --files "share2.vult"`
-- **Limitations**: DKLS scheme not supported in CLI mode
-
 #### Web Server (`cmd/server/`)
 - **Purpose**: HTTP server serving static files and WASM
 - **Build Tag**: `server`
