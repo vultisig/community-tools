@@ -8,13 +8,10 @@ import (
         "os"
         "path/filepath"
         "strings"
-        "syscall"
 
         "github.com/golang/protobuf/proto"
         "github.com/vultisig/commondata/go/vultisig/vault/v1"
-        "golang.org/x/term"
 
-        //"github.com/vultisig/mobile-tss-lib/tss"
         "main/pkg/encryption"
         "main/pkg/types"
         "main/tss"
