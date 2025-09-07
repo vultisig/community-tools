@@ -57,7 +57,7 @@ type DKLSLocalState struct {
 // tempLocalState holds the filename and local state information
 type TempLocalState struct {
     FileName    string
-    LocalState  map[TssKeyType]tss.LocalState
+    LocalState  map[TssKeyType]crypto.LocalState
     DKLSState   *DKLSLocalState
     SchemeType  SchemeType
 }
@@ -71,7 +71,7 @@ type FileInfo struct {
 // VaultContent represents the parsed content of a vault file
 type VaultContent struct {
     SchemeType  SchemeType
-    GG20Data    map[TssKeyType]tss.LocalState
+    GG20Data    map[TssKeyType]crypto.LocalState
     DKLSData    *DKLSLocalState
     IsEncrypted bool
 }

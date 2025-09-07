@@ -54,7 +54,7 @@ func DecryptWithPassword(encryptedData []byte, password string) ([]byte, error) 
     return plaintext, nil
 }
 
-func DecryptVaultContent(vaultContainer *v1.VaultContainer, password string, source types.InputSource) (map[types.TssKeyType]tss.LocalState, error) {
+func DecryptVaultContent(vaultContainer *v1.VaultContainer, password string, source InputSource) (map[TssKeyType]crypto.LocalState, error) {
   if !vaultContainer.IsEncrypted {
       return nil, fmt.Errorf("vault is not encrypted")
   }
@@ -68,16 +68,16 @@ func DecryptVaultContent(vaultContainer *v1.VaultContainer, password string, sou
   if err := proto.Unmarshal(decryptedData, &decryptedVault); err != nil {
       return nil, fmt.Errorf("failed to unmarshal decrypted data: %w", err)
   }
-  localStates := make(map[types.TssKeyType]tss.LocalState)
+  localStates := make(map[TssKeyType]crypto.LocalState)
   for _, keyshare := range decryptedVault.KeyShares {
-      var localState tss.LocalState
+      var localState crypto.LocalState
       if err := json.Unmarshal([]byte(keyshare.Keyshare), &localState); err != nil {
           return nil, fmt.Errorf("error unmarshalling keyshare: %w", err)
       }
       if keyshare.PublicKey == decryptedVault.PublicKeyEcdsa {
-          localStates[types.ECDSA] = localState
+          localStates[ECDSA] = localState
       } else {
-          localStates[types.EdDSA] = localState
+          localStates[EdDSA] = localState
       }
   }
   return localStates, nil
