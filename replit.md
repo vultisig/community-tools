@@ -17,21 +17,27 @@ Preferred communication style: Simple, everyday language.
 - Removed CLI components to focus solely on WASM generation and static file serving
 - Simplified build system to target only web interface deployment
 - Configured deployment for autoscale mode with proper build and run commands
-- Application now running and accessible via web interface
+- **Restructured folder architecture** for improved navigation and maintainability:
+  - Flattened cmd/ structure (server.go, wasm.go)
+  - Consolidated packages into logical internal/ organization (crypto/, processing/, utils/)
+  - Renamed static/ to web/ for clarity
+  - Updated all imports and build configuration
+  - Resolved circular dependencies between packages
+- Application now running and accessible via web interface with clean, navigable codebase
 
 ## System Architecture
 
-### Multi-Platform Deployment Architecture
-The system uses a shared core business logic written in Go with two distinct entry points:
-- **Web Server Mode**: HTTP server serving static files for browser-based processing
-- **WASM Mode**: WebAssembly compilation for direct JavaScript integration
+### Simplified Deployment Architecture
+The system uses a clean, hierarchical Go codebase with two streamlined entry points:
+- **Web Server Mode** (`cmd/server.go`): HTTP server serving static files for browser-based processing
+- **WASM Mode** (`cmd/wasm.go`): WebAssembly compilation for direct JavaScript integration
 
 ### Core Processing Pipeline
-The application follows a layered architecture with clear separation of concerns:
-- **File Processing Layer** (`pkg/fileutils`): Handles file validation and input processing
-- **Encryption Layer** (`pkg/encryption`): Manages AES-GCM decryption of encrypted vault shares
-- **Key Processing Layer** (`pkg/keyprocessing`): Orchestrates key reconstruction and derivation
-- **Key Handlers Layer** (`pkg/keyhandlers`): Implements scheme-specific key recovery (GG20/DKLS)
+The application follows a clean layered architecture with logical separation of concerns:
+- **Utilities Layer** (`internal/utils/`): File processing, encryption, and common data types
+- **Cryptographic Layer** (`internal/crypto/`): TSS algorithms and cryptographic primitives
+- **Processing Layer** (`internal/processing/`): Key reconstruction, derivation, and scheme-specific handlers (GG20/DKLS)
+- **Entry Points** (`cmd/`): Flattened server and WASM entry points
 
 ### Cryptographic Scheme Support
 The system supports multiple TSS schemes with different capabilities:
