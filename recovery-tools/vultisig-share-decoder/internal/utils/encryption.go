@@ -118,7 +118,7 @@ func DecryptVaultHelper(password string, vault []byte) ([]byte, error) {
   return plaintext, nil
 }
 
-func DecryptVault(vaultContainer *v1.VaultContainer, inputFileName string, password string, source types.InputSource) (*v1.Vault, error) {
+func DecryptVault(vaultContainer *v1.VaultContainer, inputFileName string, password string, source InputSource) (*v1.Vault, error) {
   vaultData, err := base64.StdEncoding.DecodeString(vaultContainer.Vault)
   if err != nil {
     return nil, fmt.Errorf("failed to decode vault: %w", err)
