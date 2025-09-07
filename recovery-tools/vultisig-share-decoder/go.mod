@@ -9,6 +9,7 @@ require (
 	github.com/btcsuite/btcd v0.24.0
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/btcsuite/btcd/btcutil v1.1.5
+	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce
 	github.com/cosmos/cosmos-sdk v0.50.4
 	github.com/decred/dcrd/dcrec/edwards/v2 v2.0.3
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0
@@ -21,9 +22,9 @@ require (
 	github.com/ipfs/go-log/v2 v2.1.3
 	github.com/ltcsuite/ltcd v0.23.5
 	github.com/ltcsuite/ltcd/ltcutil v1.1.3
-	github.com/urfave/cli/v2 v2.27.1
+	github.com/tonkeeper/tongo v1.16.19
 	github.com/vultisig/commondata v0.0.0-20241001024659-50cb6f1ca345
-	golang.org/x/term v0.25.0
+	golang.org/x/crypto v0.28.0
 )
 
 require (
@@ -40,7 +41,6 @@ require (
 	github.com/agl/ed25519 v0.0.0-20200225211852-fd4d107ace12 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0 // indirect
-	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.1 // indirect
@@ -55,7 +55,6 @@ require (
 	github.com/cosmos/cosmos-proto v1.0.0-beta.4 // indirect
 	github.com/cosmos/gogoproto v1.4.11 // indirect
 	github.com/cosmos/ics23/go v0.10.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dchest/siphash v1.2.2 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
@@ -104,7 +103,6 @@ require (
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/rogpeppe/go-internal v1.12.0 // indirect
 	github.com/rs/zerolog v1.32.0 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/snksoft/crc v1.1.0 // indirect
 	github.com/spf13/cast v1.6.0 // indirect
@@ -113,14 +111,10 @@ require (
 	github.com/stretchr/testify v1.8.4 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/tonkeeper/tongo v1.16.19 // indirect
-	github.com/vultisig/mobile-tss-lib v0.0.0-20241007055757-4506b08a18a5 // indirect
-	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.etcd.io/bbolt v1.3.8 // indirect
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.28.0 // indirect
 	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
 	golang.org/x/net v0.30.0 // indirect
 	golang.org/x/sys v0.26.0 // indirect

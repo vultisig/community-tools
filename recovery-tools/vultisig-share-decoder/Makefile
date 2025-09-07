@@ -1,19 +1,14 @@
-all: cli webserver wasm
-
-cli:
-	@echo "Building CLI..."
-	@mkdir -p dist
-	go build -tags cli -o dist/cli ./cmd/cli 
+all: webserver wasm
 
 webserver:
 	@echo "Building web server..."
 	@mkdir -p dist
-	go build -tags server -o dist/webserver ./cmd/server
+	go build -tags server -o dist/webserver ./cmd/server.go
 
 wasm:
 	@echo "Building WASM..."
-	@mkdir -p static
-	GOOS=js GOARCH=wasm go build -tags wasm -o static/main.wasm ./cmd/wasm
+	@mkdir -p web
+	GOOS=js GOARCH=wasm go build -tags wasm -o web/main.wasm ./cmd/wasm.go
 
 build: all
 
@@ -32,4 +27,4 @@ clean:
 	rm -rf dist/
 	rm -f static/main.wasm
 
-.PHONY: all cli webserver wasm build test check clean
+.PHONY: all webserver wasm build test check clean
