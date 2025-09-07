@@ -30,11 +30,11 @@ func (t TssKeyType) String() string {
 }
 
 // InputSource defines the source of input for the application
+// Note: Only Web source is used since CLI was removed
 type InputSource int
 
 const (
-    CommandLine InputSource = iota
-    Web
+    Web InputSource = iota
 )
 
 // DKLSShare represents a DKLS key share

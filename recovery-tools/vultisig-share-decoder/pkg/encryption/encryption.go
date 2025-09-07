@@ -59,12 +59,8 @@ func DecryptVaultContent(vaultContainer *v1.VaultContainer, password string, sou
   if !vaultContainer.IsEncrypted {
       return nil, fmt.Errorf("vault is not encrypted")
   }
-  var keyInput string
-  if source == types.Web {
-      keyInput = password
-  } else {
-      keyInput = password
-  }
+  // Use the provided password directly (web interface collects passwords upfront)
+  keyInput := password
   decryptedData, err := DecryptWithPassword([]byte(vaultContainer.Vault), keyInput)
   if err != nil {
       return nil, fmt.Errorf("failed to decrypt vault: %w", err)

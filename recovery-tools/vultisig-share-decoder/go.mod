@@ -25,7 +25,6 @@ require (
 	github.com/tonkeeper/tongo v1.16.19
 	github.com/vultisig/commondata v0.0.0-20241001024659-50cb6f1ca345
 	golang.org/x/crypto v0.28.0
-	golang.org/x/term v0.25.0
 )
 
 require (
