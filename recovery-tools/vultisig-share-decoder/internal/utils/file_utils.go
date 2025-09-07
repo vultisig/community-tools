@@ -12,9 +12,9 @@ import (
         "github.com/golang/protobuf/proto"
         "github.com/vultisig/commondata/go/vultisig/vault/v1"
 
-        "main/pkg/encryption"
-        "main/pkg/types"
-        "main/tss"
+        "main/internal/crypto"
+        "main/internal/utils"
+        "main/internal/crypto"
 )
 
 func ReadFileContent(fi string) ([]byte, error) {

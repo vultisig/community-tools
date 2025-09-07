@@ -26,7 +26,7 @@ func enableCORS(next http.Handler) http.Handler {
 
 func startServer() {
     // Create a custom file server that handles WASM MIME types
-    fs := http.FileServer(http.Dir("static"))
+    fs := http.FileServer(http.Dir("web"))
     
     // Wrap with MIME type handler
     handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

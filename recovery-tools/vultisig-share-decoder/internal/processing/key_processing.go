@@ -12,8 +12,8 @@ import (
     // "github.com/btcsuite/btcutil/base58"
     "github.com/btcsuite/btcd/chaincfg"
     "github.com/decred/dcrd/dcrec/secp256k1/v4"
-    "main/pkg/types"
-    "main/pkg/keyhandlers"
+    "main/internal/utils"
+    "main/internal/processing"
     edwards "github.com/decred/dcrd/dcrec/edwards/v2"
 
 )

@@ -4,16 +4,16 @@
 package main
 
 import (
-	"log"
-	"syscall/js"
-	"os"
-	"io"
-	"encoding/hex"
-	"strings"
-	"main/pkg/types"
-	"main/pkg/shared"
-	"fmt"
-	"main/pkg/keyhandlers"
+        "log"
+        "syscall/js"
+        "os"
+        "io"
+        "encoding/hex"
+        "strings"
+        "main/internal/utils"
+        "main/internal/processing"
+        "fmt"
+        "main/internal/processing"
 )
 
 func main() {

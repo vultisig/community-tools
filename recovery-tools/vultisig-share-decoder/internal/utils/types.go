@@ -2,7 +2,7 @@ package types
 
 import (
     //"github.com/vultisig/mobile-tss-lib/tss"
-    "main/tss"
+    "main/internal/crypto"
 )
 
 // SchemeType represents the cryptographic scheme type
