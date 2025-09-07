@@ -10,7 +10,6 @@ import (
     "github.com/golang/protobuf/proto"
     v1 "github.com/vultisig/commondata/go/vultisig/vault/v1"
     
-    "main/internal/utils"
     "main/internal/crypto"
 )
 
