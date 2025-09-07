@@ -16,7 +16,7 @@ import (
         "encoding/json"
 )
 
-func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source types.InputSource) (string, error) {
+func ProcessFileContent(fileInfos []utils.FileInfo, passwords []string, source utils.InputSource) (string, error) {
         var outputBuilder strings.Builder
 
         if os.Getenv("ENABLE_LOGGING") != "true" {
@@ -27,7 +27,7 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
                 return "", fmt.Errorf("no files provided")
         }
         
-        allSecret := make([]types.TempLocalState, 0, len(fileInfos))
+        allSecret := make([]utils.TempLocalState, 0, len(fileInfos))
 
         // Process each file
         for i, file := range fileInfos {
@@ -40,7 +40,7 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
                         password = passwords[i]
                 }
 
-                var localStates map[types.TssKeyType]tss.LocalState
+                var localStates map[utils.TssKeyType]crypto.LocalState
                 var err error
 
                 decodedData, err := base64.StdEncoding.DecodeString(contentStr)
@@ -54,7 +54,7 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
                 var vaultContainer v1.VaultContainer
                 if err := proto.Unmarshal(decodedData, &vaultContainer); err != nil {
                         log.Printf("Failed to unmarshal as protobuf: %v", err)
-                        localStates, err = fileutils.GetLocalStateFromContent(decodedData)
+                        localStates, err = utils.GetLocalStateFromContent(decodedData)
                         if err != nil {
                                 // Check if this error indicates a DKLS vault
                                 if strings.Contains(err.Error(), "DKLS vault detected") {
@@ -65,7 +65,7 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
                         }
                 } else {
                         log.Printf("Successfully unmarshalled as protobuf VaultContainer")
-                        localStates, err = fileutils.GetLocalStateFromBakContent([]byte(contentStr), password, source)
+                        localStates, err = utils.GetLocalStateFromBakContent([]byte(contentStr), password, source)
                         if err != nil {
                                 // Check if this error indicates a DKLS vault
                                 if strings.Contains(err.Error(), "DKLS vault detected") {
@@ -78,12 +78,12 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
 
                 // Add share details to output
                 outputBuilder.WriteString(fmt.Sprintf("Backup name: %s\n", file.Name))
-                if eddsaState, ok := localStates[types.EdDSA]; ok {
+                if eddsaState, ok := localStates[utils.EdDSA]; ok {
                         outputBuilder.WriteString(fmt.Sprintf("This Share: %s\n", eddsaState.LocalPartyKey))
                         outputBuilder.WriteString(fmt.Sprintf("All Shares: %v\n", eddsaState.KeygenCommitteeKeys))
                 }
 
-                allSecret = append(allSecret, types.TempLocalState{
+                allSecret = append(allSecret, utils.TempLocalState{
                         FileName:   fmt.Sprintf("file_%d", i),
                         LocalState: localStates,
                 })
@@ -93,10 +93,10 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
         log.Printf("Using threshold %d for %d secrets", threshold, len(allSecret))
 
         // Process GG20 files
-        if err := keyprocessing.GetKeys(threshold, allSecret, types.ECDSA, &outputBuilder); err != nil {
+        if err := GetKeys(threshold, allSecret, utils.ECDSA, &outputBuilder); err != nil {
                 return "", fmt.Errorf("error processing ECDSA keys: %w", err)
         }
-        if err := keyprocessing.GetKeys(threshold, allSecret, types.EdDSA, &outputBuilder); err != nil {
+        if err := GetKeys(threshold, allSecret, utils.EdDSA, &outputBuilder); err != nil {
                 return "", fmt.Errorf("error processing EdDSA keys: %w", err)
         }
         return outputBuilder.String(), nil
@@ -104,22 +104,22 @@ func ProcessFileContent(fileInfos []types.FileInfo, passwords []string, source t
 
 
 
-func ParseLocalState(content []byte) (map[types.TssKeyType]tss.LocalState, error) {
+func ParseLocalState(content []byte) (map[utils.TssKeyType]crypto.LocalState, error) {
         var vault v1.Vault
         if err := proto.Unmarshal(content, &vault); err != nil {
                 return nil, fmt.Errorf("failed to unmarshal vault: %w", err)
         }
 
-        localStates := make(map[types.TssKeyType]tss.LocalState)
+        localStates := make(map[utils.TssKeyType]crypto.LocalState)
         for _, keyshare := range vault.KeyShares {
-                var localState tss.LocalState
+                var localState crypto.LocalState
                 if err := json.Unmarshal([]byte(keyshare.Keyshare), &localState); err != nil {
                         return nil, fmt.Errorf("error unmarshalling keyshare: %w", err)
                 }
                 if keyshare.PublicKey == vault.PublicKeyEcdsa {
-                        localStates[types.ECDSA] = localState
+                        localStates[utils.ECDSA] = localState
                 } else {
-                        localStates[types.EdDSA] = localState
+                        localStates[utils.EdDSA] = localState
                 }
         }
 

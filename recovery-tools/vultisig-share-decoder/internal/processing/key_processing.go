@@ -17,28 +17,28 @@ import (
 
 )
 
-func GetKeys(threshold int, allSecrets []types.TempLocalState, keyType types.TssKeyType, outputBuilder *strings.Builder) error {
+func GetKeys(threshold int, allSecrets []utils.TempLocalState, keyType utils.TssKeyType, outputBuilder *strings.Builder) error {
     if len(allSecrets) == 0 {
         return fmt.Errorf("no secrets provided")
     }
 
     // Check if we're dealing with DKLS scheme
-    if len(allSecrets) > 0 && allSecrets[0].SchemeType == types.DKLS {
+    if len(allSecrets) > 0 && allSecrets[0].SchemeType == utils.DKLS {
         return fmt.Errorf("DKLS scheme should use ProcessDKLSKeys function, not GetKeys")
     }
 
     // Handle GG20 scheme (original logic)
     switch keyType {
-    case types.ECDSA:
+    case utils.ECDSA:
         return ProcessECDSAKeys(threshold, allSecrets, outputBuilder)
-    case types.EdDSA:
+    case utils.EdDSA:
         return ProcessEdDSAKeys(threshold, allSecrets, outputBuilder)
     default:
         return fmt.Errorf("unsupported key type: %v", keyType)
     }
 }
 
-func ProcessECDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBuilder *strings.Builder) error {
+func ProcessECDSAKeys(threshold int, allSecrets []utils.TempLocalState, outputBuilder *strings.Builder) error {
     log.Printf("Processing ECDSA keys with threshold: %d, number of secrets: %d", threshold, len(allSecrets))
 
     // Validate input parameters
@@ -55,7 +55,7 @@ func ProcessECDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBu
     
     // Output the public key once (they should all be the same for the same vault)
     if len(allSecrets) > 0 {
-        if firstState, exists := allSecrets[0].LocalState[types.ECDSA]; exists {
+        if firstState, exists := allSecrets[0].LocalState[utils.ECDSA]; exists {
             fmt.Fprintf(outputBuilder, "\nPublic Key(ECDSA): %v\n", firstState.PubKey)
         }
     }
@@ -66,7 +66,7 @@ func ProcessECDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBu
             return fmt.Errorf("localState is nil for secret %d", i)
         }
         // Check if ECDSA key exists
-        localState, exists := s.LocalState[types.ECDSA]
+        localState, exists := s.LocalState[utils.ECDSA]
         if !exists {
             return fmt.Errorf("ECDSA key not found in secret %d", i)
         }
@@ -107,7 +107,7 @@ func ProcessECDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBu
 
     // Example for Bitcoin derivation
     net := &chaincfg.MainNetParams
-    chaincode := allSecrets[0].LocalState[types.ECDSA].ChainCodeHex
+    chaincode := allSecrets[0].LocalState[utils.ECDSA].ChainCodeHex
     fmt.Fprintf(outputBuilder, "\nchaincode: %s\n", chaincode)
     chaincodeBuf, err := hex.DecodeString(chaincode)
     if err != nil {
@@ -116,11 +116,11 @@ func ProcessECDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBu
     extendedPrivateKey := hdkeychain.NewExtendedKey(net.HDPrivateKeyID[:], privateKey.Serialize(), chaincodeBuf, []byte{0x00, 0x00, 0x00, 0x00}, 0, 0, true)
     fmt.Fprintf(outputBuilder, "\nextended private key full: %s\n", extendedPrivateKey.String())
 
-    supportedCoins := keyhandlers.GetSupportedCoins()
+    supportedCoins := GetSupportedCoins()
 
     for _, coin := range supportedCoins {
         fmt.Fprintf(outputBuilder, "\nRecovering %s key....\n", coin.Name)
-        key, err := keyhandlers.GetDerivedPrivateKeys(coin.DerivePath, extendedPrivateKey)
+        key, err := GetDerivedPrivateKeys(coin.DerivePath, extendedPrivateKey)
         if err != nil {
             return fmt.Errorf("error deriving private key for %s: %w", coin.Name, err)
         }
@@ -133,19 +133,19 @@ func ProcessECDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBu
     return nil
 }
 
-func ProcessEdDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBuilder *strings.Builder) error {
+func ProcessEdDSAKeys(threshold int, allSecrets []utils.TempLocalState, outputBuilder *strings.Builder) error {
     vssShares := make(vss.Shares, len(allSecrets))
     
     // Output the public key once (they should all be the same for the same vault)
     if len(allSecrets) > 0 {
-        fmt.Fprintf(outputBuilder, "\nPublic Key(EdDSA): %v\n", allSecrets[0].LocalState[types.EdDSA].PubKey)
+        fmt.Fprintf(outputBuilder, "\nPublic Key(EdDSA): %v\n", allSecrets[0].LocalState[utils.EdDSA].PubKey)
     }
     
     for i, s := range allSecrets {
         share := vss.Share{
             Threshold: threshold,
-            ID:        s.LocalState[types.EdDSA].EDDSALocalData.ShareID,
-            Share:     s.LocalState[types.EdDSA].EDDSALocalData.Xi,
+            ID:        s.LocalState[utils.EdDSA].EDDSALocalData.ShareID,
+            Share:     s.LocalState[utils.EdDSA].EDDSALocalData.Xi,
         }
         vssShares[i] = &share
     }
@@ -163,6 +163,6 @@ func ProcessEdDSAKeys(threshold int, allSecrets []types.TempLocalState, outputBu
     privateKeyBytes := privateKey.Serialize()
 
     // Now process EdDSA coins using the reconstructed root keys
-    eddsaCoins := keyhandlers.GetEdDSACoins()
-    return keyhandlers.ProcessEdDSAKeyForCoins(privateKeyBytes, publicKeyBytes, eddsaCoins, outputBuilder)
+    eddsaCoins := GetEdDSACoins()
+    return ProcessEdDSAKeyForCoins(privateKeyBytes, publicKeyBytes, eddsaCoins, outputBuilder)
 }

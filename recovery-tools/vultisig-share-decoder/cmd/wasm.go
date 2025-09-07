@@ -154,7 +154,7 @@ func main() {
 
         // Process the root key for the specific coin
         var outputBuilder strings.Builder
-        err = keyhandlers.ProcessRootKeyForCoins(rootPrivateKeyBytes, rootChainCodeBytes, []processing.CoinConfig{*targetCoin}, &outputBuilder)
+        err = processing.ProcessRootKeyForCoins(rootPrivateKeyBytes, rootChainCodeBytes, []processing.CoinConfig{*targetCoin}, &outputBuilder)
         if err != nil {
             return fmt.Sprintf("Error processing key for %s: %v", coinType, err)
         }
