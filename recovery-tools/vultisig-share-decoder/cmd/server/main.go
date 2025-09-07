@@ -39,8 +39,8 @@ func startServer() {
     
     http.Handle("/", enableCORS(handler))
 
-    log.Print("Listening on :8080...")
-    err := http.ListenAndServe(":8080", nil)
+    log.Print("Listening on 0.0.0.0:5000...")
+    err := http.ListenAndServe("0.0.0.0:5000", nil)
     if err != nil {
         log.Fatal(err)
     }
