@@ -28,8 +28,10 @@ go.work
 .DS_Store
 
 # Local files
-.env
+**/.env
 **/dist/
 
 # Replit files
 **/attached_assets/
+**/replit.md
+**/.replit

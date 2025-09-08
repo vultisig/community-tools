@@ -11,45 +11,46 @@ The Vultisig Share Decoder is a multi-platform application that recovers cryptog
 │                    Vultisig Share Decoder                       │
 ├─────────────────────────────────────────────────────────────────┤
 │                      User Interfaces                           │
-│  ┌───────────────┐ ┌───────────────┐ ┌───────────────────────┐ │
-│  │   CLI Mode    │ │  Web Browser  │ │   Direct WASM Call    │ │
-│  │  (Terminal)   │ │   (Static)    │ │   (JavaScript)        │ │
-│  └───────────────┘ └───────────────┘ └───────────────────────┘ │
+│  ┌───────────────┐ ┌───────────────────────────────────────────┐ │
+│  │  Web Browser  │ │           Direct WASM Call                │ │
+│  │   (Static)    │ │           (JavaScript)                    │ │
+│  └───────────────┘ └───────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Application Layer                           │
 ├─────────────────────────────────────────────────────────────────┤
-│  Entry Points:                                                 │
-│  ┌───────────────┐ ┌───────────────┐ ┌───────────────────────┐ │
-│  │  cmd/cli/     │ │ cmd/server/   │ │    cmd/wasm/          │ │
-│  │  main.go      │ │ main.go       │ │    main.go            │ │
-│  │               │ │               │ │                       │ │
-│  │ UrfaVE CLI    │ │ HTTP Server   │ │ JS Global Functions   │ │
-│  │ Commands      │ │ Static Files  │ │ ProcessFiles()        │ │
-│  └───────────────┘ └───────────────┘ └───────────────────────┘ │
+│  Entry Points (Flattened Structure):                           │
+│  ┌───────────────┐ ┌───────────────────────────────────────────┐ │
+│  │ cmd/server.go │ │            cmd/wasm.go                    │ │
+│  │               │ │                                           │ │
+│  │ HTTP Server   │ │         JS Global Functions               │ │
+│  │ Static Files  │ │         ProcessFiles()                   │ │
+│  └───────────────┘ └───────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Core Business Logic                         │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌───────────────────────────────────────────────────────────┐ │
-│  │                 pkg/shared/                               │ │
-│  │           ProcessFileContent()                            │ │
+│  │              internal/processing/                         │ │
+│  │        shared.go - ProcessFileContent()                   │ │
 │  │         Main orchestration logic                          │ │
 │  │      Scheme Detection (GG20/DKLS/Auto)                   │ │
 │  └───────────────────────────────────────────────────────────┘ │
 │                              │                                 │
 │  ┌───────────────┐ ┌───────────────┐ ┌───────────────────────┐ │
-│  │pkg/fileutils/ │ │pkg/encryption/│ │  pkg/keyprocessing/   │ │
-│  │File handling  │ │AES decryption │ │  Key reconstruction   │ │
-│  │& validation   │ │& validation   │ │  & derivation         │ │
+│  │internal/utils/│ │internal/utils/│ │ internal/processing/  │ │
+│  │file_utils.go  │ │encryption.go  │ │ key_processing.go     │ │
+│  │File handling  │ │AES decryption │ │ Key reconstruction    │ │
+│  │& validation   │ │& validation   │ │ & derivation          │ │
 │  └───────────────┘ └───────────────┘ └───────────────────────┘ │
 │                              │                                 │
 │  ┌───────────────────────────────────────────────────────────┐ │
-│  │                 pkg/keyhandlers/                          │ │
-│  │            Cryptocurrency-specific handlers               │ │
-│  │         (Bitcoin, Ethereum, etc.)                        │ │
+│  │            internal/processing/                           │ │
+│  │         key_handlers.go                                   │ │
+│  │      Cryptocurrency-specific handlers                     │ │
+│  │       (Bitcoin, Ethereum, etc.)                          │ │
 │  └───────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                               │
@@ -57,45 +58,35 @@ The Vultisig Share Decoder is a multi-platform application that recovers cryptog
 │                  Cryptographic Layer                           │
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌───────────────┐ ┌───────────────────────────────────────────┐ │
-│  │    tss/       │ │    static/vs_wasm* (Web Interface Only)   │ │
-│  │ GG20 TSS lib  │ │  DKLS WASM module (Rust compiled)         │ │
-│  │ (bnb-chain)   │ │  Only available in web interface          │ │
-│  │               │ │                                           │ │
+│  │internal/crypto│ │    web/vs_wasm* (Web Interface Only)      │ │
+│  │  tss.go       │ │  DKLS WASM module (Rust compiled)         │ │
+│  │ GG20 TSS lib  │ │  Only available in web interface          │ │
+│  │ (bnb-chain)   │ │                                           │ │
 │  └───────────────┘ └───────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Component Breakdown
 
-### 1. Entry Points (`cmd/`)
+### 1. Entry Points (`cmd/`) - Flattened Structure
 
-#### CLI Mode (`cmd/cli/`)
-- **Purpose**: Command-line interface for server/desktop environments (GG20 only)
-- **Build Tag**: `cli`
-- **Key Files**: 
-  - `main.go`: CLI app configuration using urfave/cli
-  - `actions.go`: CLI-specific actions (decrypt, recover)
-- **Usage**: `./dist/cli recover --files "share1.vult" --files "share2.vult"`
-- **Limitations**: DKLS scheme not supported in CLI mode
-
-#### Web Server (`cmd/server/`)
+#### Web Server (`cmd/server.go`)
 - **Purpose**: HTTP server serving static files and WASM
-- **Build Tag**: `server`
 - **Key Features**:
   - CORS-enabled static file server
   - WASM MIME type handling
-  - Serves on port 8080 (mapped to 80/443 in production)
+  - Serves on port 5000 for Replit compatibility
+  - Serves files from `web/` directory
 
-#### WebAssembly (`cmd/wasm/`)
+#### WebAssembly (`cmd/wasm.go`)
 - **Purpose**: Browser-compatible cryptographic processing
-- **Build Tag**: `wasm`
 - **Exposed Functions**:
   - `ProcessFiles(fileContents, passwords, filenames, scheme)`
-- **Integration**: Called from `static/main.js`
+- **Integration**: Called from `web/main.js`
 
-### 2. Core Business Logic (`pkg/`)
+### 2. Core Business Logic (`internal/`) - Organized by Function
 
-#### Shared Orchestration (`pkg/shared/`)
+#### Processing Orchestration (`internal/processing/shared.go`)
 - **Main Function**: `ProcessFileContent()`
 - **Responsibilities**:
   - File type detection and routing
@@ -107,35 +98,36 @@ The Vultisig Share Decoder is a multi-platform application that recovers cryptog
   - `ProcessDKLSFiles()`: Routes DKLS files to appropriate processors
   - `ProcessGG20Files()`: Routes GG20 files to TSS library
 
-#### File Processing (`pkg/fileutils/`)
+#### File Processing (`internal/utils/file_utils.go`)
 - **Functions**:
   - File reading and validation
   - Format detection (.vult, .bak, .dat)
   - Content extraction and preprocessing
 
-#### Encryption Handling (`pkg/encryption/`)
+#### Encryption Handling (`internal/utils/encryption.go`)
 - **Functions**:
   - AES-GCM decryption for encrypted shares
   - Password validation
   - Protobuf deserialization (Vultisig vault format)
 
-#### Key Processing (`pkg/keyprocessing/`)
+#### Key Processing (`internal/processing/key_processing.go`)
 - **Core Logic**:
   - TSS key reconstruction algorithms
   - Threshold validation
   - Private key derivation
   - Multi-scheme support (GG20/DKLS)
-- **Key Files**:
-  - `key_processing.go`: GG20 processing
-  - `dkls_processing.go`: DKLS orchestration and native processing
+- **Key Functions**:
+  - `GetKeys()`: Main key processing entry point
+  - `ProcessECDSAKeys()`: ECDSA key reconstruction
+  - `ProcessEdDSAKeys()`: EdDSA key reconstruction
 
-#### Cryptocurrency Handlers (`pkg/keyhandlers/`)
+#### Cryptocurrency Handlers (`internal/processing/key_handlers.go`)
 - **Supported Chains**:
   - Bitcoin (WIF format, P2WPKH)
   - Ethereum (hex private keys)
   - Other EVM chains
   - Cosmos-based chains (THORChain)
-  - Future: Solana, etc.
+  - Additional chains: Solana, Ton, Sui
 
 ### 3. DKLS Implementation (Web Interface Only)
 
@@ -209,7 +201,7 @@ DKLS processing is only available through the web interface using WASM modules:
   - Browser: Direct JavaScript integration
   - Server: Node.js execution via generated scripts
 
-### 5. Frontend (`static/`)
+### 5. Frontend (`web/`) - Renamed for Clarity
 
 #### Web Interface (`index.html`, `main.js`, `style.css`)
 - **Features**:
