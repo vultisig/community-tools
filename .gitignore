@@ -35,3 +35,6 @@ go.work
 **/attached_assets/
 **/replit.md
 **/.replit
+.replit
+replit.md
+
