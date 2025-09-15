@@ -365,10 +365,39 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
     // Helper function to extract private key using a specific WASM module (reused from processDKLSWithWASM)
     async function extractPrivateKeyWithModule(module, moduleType) {
         debugLog(`Starting ${moduleType} key extraction for JSON processing...`);
-        const { KeyExportSession, Keyshare } = module;
         
-        const keyshares = [];
-        const keyIds = [];
+        // Use explicit module references instead of shared destructuring to avoid naming conflicts
+        let KeyExportSessionClass, KeyshareClass;
+        if (moduleType === "ECDSA") {
+            KeyExportSessionClass = window.vsWasmModule.KeyExportSession;
+            KeyshareClass = window.vsWasmModule.Keyshare;
+            debugLog(`Using ECDSA-specific classes from vs_wasm module`);
+        } else if (moduleType === "EdDSA") {
+            KeyExportSessionClass = window.vsSchnorrWasmModule.KeyExportSession;
+            KeyshareClass = window.vsSchnorrWasmModule.Keyshare;
+            debugLog(`Using EdDSA-specific classes from vs_schnorr_wasm module`);
+        } else {
+            throw new Error(`Unknown module type: ${moduleType}`);
+        }
+        
+        // Verify classes exist
+        if (!KeyExportSessionClass || !KeyshareClass) {
+            const error = `${moduleType} WASM classes not available (KeyExportSession: ${!!KeyExportSessionClass}, Keyshare: ${!!KeyshareClass})`;
+            debugLog(error);
+            if (moduleType === "EdDSA") {
+                return {
+                    failed: true,
+                    error: error,
+                    moduleType: moduleType
+                };
+            } else {
+                throw new Error(error);
+            }
+        }
+        
+        // Use distinct variable names for each algorithm to prevent cross-contamination
+        const algorithmKeyshares = [];
+        const algorithmKeyIds = [];
         
         // Extract keyshare data and create WASM keyshares
         for (let i = 0; i < files.length; i++) {
@@ -379,10 +408,16 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                 const keyshareData = await parseAndDecryptVault(files[i], password);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
 
-                const keyshare = Keyshare.fromBytes(keyshareData);
-                if (!keyshare) {
+                // Use distinct data copy for each module to prevent cross-contamination
+                const keyshareDataCopy = new Uint8Array(keyshareData);
+                debugLog(`Creating ${moduleType} keyshare from isolated data copy`);
+
+                // Use explicit class reference, not shared destructured variable
+                const algorithmKeyshare = KeyshareClass.fromBytes(keyshareDataCopy);
+                if (!algorithmKeyshare) {
                     if (moduleType === "EdDSA") {
                         debugLog(`${moduleType} keyshare creation failed for file ${i + 1} - this may be expected for certain vault types`);
+                        debugLog(`EdDSA KeyshareClass.fromBytes returned null/undefined - keyshare data may not contain EdDSA format`);
                         // For EdDSA, continue with next file or return failure object if no keyshares work
                         continue;
                     } else {
@@ -390,14 +425,14 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                     }
                 }
 
-                keyshares.push(keyshare);
-                debugLog(`Successfully created ${moduleType} keyshare ${i + 1}`);
+                algorithmKeyshares.push(algorithmKeyshare);
+                debugLog(`Successfully created ${moduleType} keyshare ${i + 1} using explicit class reference`);
 
                 // Get the key ID for this keyshare
-                let keyId;
+                let algorithmKeyId;
                 try {
-                    keyId = keyshare.keyId();
-                    if (!keyId) {
+                    algorithmKeyId = algorithmKeyshare.keyId();
+                    if (!algorithmKeyId) {
                         throw new Error(`keyId() returned null/undefined`);
                     }
                 } catch (keyIdError) {
@@ -406,17 +441,17 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                 }
 
                 // Convert keyId to string
-                let keyIdStr;
-                if (keyId instanceof Uint8Array) {
-                    keyIdStr = Array.from(keyId).map(b => b.toString(16).padStart(2, '0')).join('');
-                } else if (typeof keyId === 'string') {
-                    keyIdStr = keyId;
+                let algorithmKeyIdStr;
+                if (algorithmKeyId instanceof Uint8Array) {
+                    algorithmKeyIdStr = Array.from(algorithmKeyId).map(b => b.toString(16).padStart(2, '0')).join('');
+                } else if (typeof algorithmKeyId === 'string') {
+                    algorithmKeyIdStr = algorithmKeyId;
                 } else {
-                    keyIdStr = String(keyId);
+                    algorithmKeyIdStr = String(algorithmKeyId);
                 }
 
-                keyIds.push(keyIdStr);
-                debugLog(`Created ${moduleType} keyshare ${i + 1} with ID: ${keyIdStr}`);
+                algorithmKeyIds.push(algorithmKeyIdStr);
+                debugLog(`Created ${moduleType} keyshare ${i + 1} with ID: ${algorithmKeyIdStr}`);
 
             } catch (error) {
                 debugLog(`Error processing file ${i + 1} for ${moduleType}: ${error.message}`);
@@ -430,7 +465,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             }
         }
 
-        if (keyshares.length === 0) {
+        if (algorithmKeyshares.length === 0) {
             if (moduleType === "EdDSA") {
                 debugLog(`No valid ${moduleType} keyshares were created - returning failure object`);
                 return {
@@ -443,20 +478,20 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             }
         }
 
-        debugLog(`Successfully created ${keyshares.length} ${moduleType} keyshares`);
+        debugLog(`Successfully created ${algorithmKeyshares.length} ${moduleType} keyshares`);
         
-        const partyIds = keyshares.map((_, index) => `party${index + 1}`);
-        debugLog(`Using ${moduleType} party IDs: ${partyIds.join(', ')}`);
+        const algorithmPartyIds = algorithmKeyshares.map((_, index) => `party${index + 1}`);
+        debugLog(`Using ${moduleType} party IDs: ${algorithmPartyIds.join(', ')}`);
         
-        // Create session
-        let session;
+        // Create session using explicit class reference
+        let algorithmSession;
         try {
-            debugLog(`Creating ${moduleType} session with first keyshare and party IDs...`);
-            session = KeyExportSession.new(keyshares[0], partyIds);
-            if (!session) {
+            debugLog(`Creating ${moduleType} session with first keyshare and party IDs using explicit class...`);
+            algorithmSession = KeyExportSessionClass.new(algorithmKeyshares[0], algorithmPartyIds);
+            if (!algorithmSession) {
                 throw new Error(`${moduleType} KeyExportSession.new returned null/undefined`);
             }
-            debugLog(`${moduleType} session created successfully`);
+            debugLog(`${moduleType} session created successfully using explicit class reference`);
         } catch (sessionError) {
             debugLog(`${moduleType} session creation failed: ${sessionError.message}`);
             if (moduleType === "EdDSA") {
@@ -473,13 +508,13 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
 
         // Get setup message
         debugLog(`Getting ${moduleType} setup message...`);
-        let setupMessage;
+        let algorithmSetupMessage;
         try {
-            setupMessage = session.setup;
-            if (!setupMessage) {
+            algorithmSetupMessage = algorithmSession.setup;
+            if (!algorithmSetupMessage) {
                 throw new Error(`${moduleType} setup property returned null/undefined`);
             }
-            debugLog(`${moduleType} setup message obtained, length: ${setupMessage.length} bytes`);
+            debugLog(`${moduleType} setup message obtained, length: ${algorithmSetupMessage.length} bytes`);
         } catch (setupError) {
             debugLog(`${moduleType} setup message retrieval failed: ${setupError.message}`);
             if (moduleType === "EdDSA") {
@@ -496,27 +531,28 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
 
         // Process remaining keyshares
         debugLog(`Processing remaining ${moduleType} keyshares...`);
-        for (let i = 1; i < keyshares.length; i++) {
-            debugLog(`Processing ${moduleType} keyshare ${i + 1} with party ID: ${partyIds[i]}...`);
+        for (let i = 1; i < algorithmKeyshares.length; i++) {
+            debugLog(`Processing ${moduleType} keyshare ${i + 1} with party ID: ${algorithmPartyIds[i]}...`);
             
             try {
-                let message;
+                let algorithmMessage;
                 try {
-                    message = KeyExportSession.exportShare(setupMessage, partyIds[i], keyshares[i]);
+                    // Use explicit class reference for exportShare
+                    algorithmMessage = KeyExportSessionClass.exportShare(algorithmSetupMessage, algorithmPartyIds[i], algorithmKeyshares[i]);
                     debugLog(`${moduleType} exportShare call completed for keyshare ${i + 1}`);
                 } catch (exportError) {
                     debugLog(`${moduleType} exportShare call failed: ${exportError.message}`);
                     throw exportError;
                 }
 
-                if (!message || !message.body) {
+                if (!algorithmMessage || !algorithmMessage.body) {
                     throw new Error(`${moduleType} exportShare returned invalid message for keyshare ${i + 1}`);
                 }
 
-                const messageBody = message.body;
-                debugLog(`${moduleType} keyshare ${i + 1} exported message, length: ${messageBody.length} bytes`);
+                const algorithmMessageBody = algorithmMessage.body;
+                debugLog(`${moduleType} keyshare ${i + 1} exported message, length: ${algorithmMessageBody.length} bytes`);
 
-                const isComplete = session.inputMessage(messageBody);
+                const isComplete = algorithmSession.inputMessage(algorithmMessageBody);
                 debugLog(`${moduleType} message ${i + 1} processed, session complete: ${isComplete}`);
 
             } catch (shareError) {
@@ -536,24 +572,33 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
 
         // Extract private key
         debugLog(`Finishing ${moduleType} session to extract private key...`);
-        let privateKeyBytes;
+        let algorithmPrivateKeyBytes;
         try {
-            debugLog(`Calling session.finish() for ${moduleType}...`);
-            privateKeyBytes = session.finish();
-            debugLog(`${moduleType} session.finish() returned:`, privateKeyBytes);
-            debugLog(`${moduleType} privateKeyBytes type: ${typeof privateKeyBytes}`);
-            if (privateKeyBytes) {
-                debugLog(`${moduleType} privateKeyBytes length: ${privateKeyBytes.length}`);
+            debugLog(`Calling algorithmSession.finish() for ${moduleType}...`);
+            algorithmPrivateKeyBytes = algorithmSession.finish();
+            debugLog(`${moduleType} session.finish() returned:`, algorithmPrivateKeyBytes);
+            debugLog(`${moduleType} privateKeyBytes type: ${typeof algorithmPrivateKeyBytes}`);
+            if (algorithmPrivateKeyBytes) {
+                debugLog(`${moduleType} privateKeyBytes length: ${algorithmPrivateKeyBytes.length}`);
             } else {
                 debugLog(`${moduleType} session.finish() returned null/undefined!`);
             }
         } catch (finishError) {
             debugLog(`${moduleType} session finish failed: ${finishError.message}`);
-            throw new Error(`Failed to finish ${moduleType} DKLS session: ${finishError.message}`);
+            if (moduleType === "EdDSA") {
+                debugLog(`${moduleType} session finish failed - returning failure object`);
+                return {
+                    failed: true,
+                    error: `Failed to finish ${moduleType} DKLS session: ${finishError.message}`,
+                    moduleType: moduleType
+                };
+            } else {
+                throw new Error(`Failed to finish ${moduleType} DKLS session: ${finishError.message}`);
+            }
         }
 
-        if (!privateKeyBytes || privateKeyBytes.length === 0) {
-            const errorMsg = `${moduleType} session finished but returned ${privateKeyBytes === null ? 'null' : privateKeyBytes === undefined ? 'undefined' : 'empty'} private key`;
+        if (!algorithmPrivateKeyBytes || algorithmPrivateKeyBytes.length === 0) {
+            const errorMsg = `${moduleType} session finished but returned ${algorithmPrivateKeyBytes === null ? 'null' : algorithmPrivateKeyBytes === undefined ? 'undefined' : 'empty'} private key`;
             debugLog(errorMsg);
             
             if (moduleType === "EdDSA") {
@@ -570,20 +615,20 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             }
         }
 
-        const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Extracted ${moduleType} private key (${privateKeyBytes.length} bytes)`);
+        const algorithmPrivateKeyHex = Array.from(algorithmPrivateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        debugLog(`Extracted ${moduleType} private key (${algorithmPrivateKeyBytes.length} bytes)`);
         
-        // Also get public key and root chain code for reference
-        const publicKeyBytes = keyshares[0].publicKey();
-        const publicKeyHex = Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        // Also get public key and root chain code for reference using distinct keyshare reference
+        const algorithmPublicKeyBytes = algorithmKeyshares[0].publicKey();
+        const algorithmPublicKeyHex = Array.from(algorithmPublicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         
-        const rootChainCodeBytes = keyshares[0].rootChainCode();
-        const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        const algorithmRootChainCodeBytes = algorithmKeyshares[0].rootChainCode();
+        const algorithmRootChainCodeHex = Array.from(algorithmRootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         
         return {
-            privateKeyHex,
-            publicKeyHex,
-            rootChainCodeHex
+            privateKeyHex: algorithmPrivateKeyHex,
+            publicKeyHex: algorithmPublicKeyHex,
+            rootChainCodeHex: algorithmRootChainCodeHex
         };
     }
 
