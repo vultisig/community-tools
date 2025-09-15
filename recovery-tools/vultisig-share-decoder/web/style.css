@@ -191,6 +191,84 @@ h1 {
     background: rgba(0, 0, 0, 0.3);
     padding: 15px;
     border-radius: 6px;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+}
+
+.debug-output.active {
+    display: block;
+}
+
+/* Debug header with controls */
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.debug-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.verbose-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.verbose-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-color);
+}
+
+/* Debug tabs */
+.debug-tabs-container {
+    border: 1px solid rgba(0, 255, 204, 0.2);
+    border-radius: var(--border-radius);
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.debug-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.debug-tab {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all var(--transition-speed) ease;
+    border-bottom: 3px solid transparent;
+}
+
+.debug-tab:hover {
+    background-color: rgba(0, 255, 204, 0.1);
+    color: var(--primary-color);
+}
+
+.debug-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background-color: rgba(0, 255, 204, 0.05);
+}
+
+.debug-content {
+    position: relative;
+    min-height: 200px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     margin-top: 10px;
 }
@@ -569,7 +647,6 @@ pre {
       padding: 0.75rem;
     }
   }
-}
 
 /* Utility Classes */
 .hidden {

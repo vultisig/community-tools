@@ -18,27 +18,46 @@ const LOG_LEVELS = {
 window.LOG_LEVEL = LOG_LEVELS.INFO;
 
 // Main logging function with levels and sections
-function log(level, section, message) {
+function log(level, section, message, shareName = '') {
     if (level > window.LOG_LEVEL) return; // Skip if level too verbose
     
-    const debugOutput = document.getElementById('debugOutput');
+    // Route to appropriate tab based on level
+    const levelName = Object.keys(LOG_LEVELS)[level]?.toLowerCase() || 'info';
+    const debugOutput = document.getElementById(`debugOutput-${levelName}`);
+    
+    if (!debugOutput) return; // Safety check
+    
     const timestamp = new Date().toISOString().split('T')[1].substring(0,8);
-    const levelName = Object.keys(LOG_LEVELS)[level] || 'LOG';
-    debugOutput.textContent += `[${section}] ${timestamp}: ${message}\n`;
+    const sharePrefix = shareName ? `[${shareName}] ` : '';
+    debugOutput.textContent += `${sharePrefix}[${section}] ${timestamp}: ${message}\n`;
     debugOutput.scrollTop = debugOutput.scrollHeight;
 }
 
 // Convenience functions for different log levels
-function logError(section, message) { log(LOG_LEVELS.ERROR, section, message); }
-function logWarn(section, message) { log(LOG_LEVELS.WARN, section, message); }
-function logInfo(section, message) { log(LOG_LEVELS.INFO, section, message); }
-function logDebug(section, message) { log(LOG_LEVELS.DEBUG, section, message); }
+function logError(section, message, shareName = '') { log(LOG_LEVELS.ERROR, section, message, shareName); }
+function logWarn(section, message, shareName = '') { log(LOG_LEVELS.WARN, section, message, shareName); }
+function logInfo(section, message, shareName = '') { log(LOG_LEVELS.INFO, section, message, shareName); }
+function logDebug(section, message, shareName = '') { log(LOG_LEVELS.DEBUG, section, message, shareName); }
 
 // Clear debug output when starting recovery
 function clearDebugOutput() {
-    const debugOutput = document.getElementById('debugOutput');
-    debugOutput.textContent = '';
+    // Clear all tab outputs
+    ['info', 'warn', 'error', 'debug'].forEach(level => {
+        const debugOutput = document.getElementById(`debugOutput-${level}`);
+        if (debugOutput) debugOutput.textContent = '';
+    });
     logInfo('START', 'Recovery process initiated...');
+}
+
+// Tab switching functionality  
+function switchDebugTab(tabName) {
+    // Remove active class from all tabs and outputs
+    document.querySelectorAll('.debug-tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.debug-output').forEach(output => output.classList.remove('active'));
+    
+    // Add active class to selected tab and output
+    document.querySelector(`button[onclick="switchDebugTab('${tabName}')"]`).classList.add('active');
+    document.getElementById(`debugOutput-${tabName}`).classList.add('active');
 }
 
 // Legacy functions for backward compatibility - now route to DEBUG level (suppressed by default)
@@ -51,8 +70,9 @@ function debugLog(message) {
 
 // Add verbose mode toggle for power users
 function toggleVerboseMode() {
-    window.LOG_LEVEL = window.LOG_LEVEL === LOG_LEVELS.DEBUG ? LOG_LEVELS.INFO : LOG_LEVELS.DEBUG;
-    const mode = window.LOG_LEVEL === LOG_LEVELS.DEBUG ? 'ON' : 'OFF';
+    const checkbox = document.getElementById('verboseMode');
+    window.LOG_LEVEL = checkbox.checked ? LOG_LEVELS.DEBUG : LOG_LEVELS.INFO;
+    const mode = checkbox.checked ? 'ON' : 'OFF';
     logInfo('UI', `Verbose mode: ${mode}`);
 }
 

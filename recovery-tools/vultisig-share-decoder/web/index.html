@@ -82,10 +82,31 @@
             </section>
 
             <section class="debug-section">
-                <h3 class="toggle-header" onclick="toggleSection('debugOutput')">
-                    Debug Output <span class="toggle-arrow">▼</span>
-                </h3>
-                <pre id="debugOutput" class="debug-output content" style="display: none;"></pre>
+                <div class="debug-header">
+                    <h3 class="toggle-header" onclick="toggleSection('debugTabs')">
+                        Debug Output <span class="toggle-arrow">▼</span>
+                    </h3>
+                    <div class="debug-controls">
+                        <label class="verbose-checkbox">
+                            <input type="checkbox" id="verboseMode" onchange="toggleVerboseMode()">
+                            Verbose Mode
+                        </label>
+                    </div>
+                </div>
+                <div id="debugTabs" class="debug-tabs-container content" style="display: none;">
+                    <div class="debug-tabs">
+                        <button class="debug-tab active" onclick="switchDebugTab('info')">INFO</button>
+                        <button class="debug-tab" onclick="switchDebugTab('warn')">WARN</button>
+                        <button class="debug-tab" onclick="switchDebugTab('error')">ERROR</button>
+                        <button class="debug-tab" onclick="switchDebugTab('debug')">DEBUG</button>
+                    </div>
+                    <div class="debug-content">
+                        <pre id="debugOutput-info" class="debug-output active"></pre>
+                        <pre id="debugOutput-warn" class="debug-output"></pre>
+                        <pre id="debugOutput-error" class="debug-output"></pre>
+                        <pre id="debugOutput-debug" class="debug-output"></pre>
+                    </div>
+                </div>
             </section>
 
             <section class="results-section debug-section">
