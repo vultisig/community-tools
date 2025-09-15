@@ -87,9 +87,41 @@
                         Debug Output <span class="toggle-arrow">▼</span>
                     </h3>
                     <div class="debug-controls">
+                        <div class="debug-config-group">
+                            <label class="debug-checkbox">
+                                <input type="checkbox" id="enableStructuredDebug" onchange="updateDebugConfig()">
+                                Enable Structured Debug
+                            </label>
+                            
+                            <label for="debugLevel">Level:</label>
+                            <select id="debugLevel" onchange="updateDebugConfig()">
+                                <option value="ERROR">Error</option>
+                                <option value="WARN">Warning</option>
+                                <option value="INFO" selected>Info</option>
+                                <option value="DEBUG">Debug</option>
+                            </select>
+                            
+                            <label for="debugCategories">Categories:</label>
+                            <select id="debugCategories" multiple onchange="updateDebugConfig()">
+                                <option value="PIPELINE">Pipeline</option>
+                                <option value="PARSER">Parser</option>
+                                <option value="DKLS">DKLS</option>
+                                <option value="GG20">GG20</option>
+                                <option value="ECDSA">ECDSA</option>
+                                <option value="EdDSA">EdDSA</option>
+                                <option value="COIN">Coin</option>
+                                <option value="WASM">WASM</option>
+                            </select>
+                            
+                            <label class="sensitive-checkbox">
+                                <input type="checkbox" id="includeSensitive" onchange="updateDebugConfig()">
+                                Include Sensitive Data
+                            </label>
+                        </div>
+                        
                         <label class="verbose-checkbox">
                             <input type="checkbox" id="verboseMode" onchange="toggleVerboseMode()">
-                            Verbose Mode
+                            Legacy Verbose Mode
                         </label>
                     </div>
                 </div>

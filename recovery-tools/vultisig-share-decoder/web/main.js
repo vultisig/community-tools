@@ -76,6 +76,47 @@ function toggleVerboseMode() {
     logInfo('UI', `Verbose mode: ${mode}`);
 }
 
+// Structured debug configuration management
+function updateDebugConfig() {
+    const enabled = document.getElementById('enableStructuredDebug').checked;
+    const level = document.getElementById('debugLevel').value;
+    const categoriesSelect = document.getElementById('debugCategories');
+    const includeSensitive = document.getElementById('includeSensitive').checked;
+
+    // Get selected categories
+    const categories = Array.from(categoriesSelect.selectedOptions).map(option => option.value);
+
+    // Configure debug settings via WASM
+    if (typeof SetDebugConfig === 'function') {
+        try {
+            const result = SetDebugConfig(enabled, level, categories, includeSensitive);
+            logInfo('DEBUG', `Debug config updated: ${result}`);
+        } catch (error) {
+            logError('DEBUG', `Failed to update debug config: ${error.message}`);
+        }
+    } else {
+        logWarn('DEBUG', 'SetDebugConfig function not available - WASM not initialized');
+    }
+
+    // Update UI state
+    const configElements = [document.getElementById('debugLevel'), categoriesSelect, document.getElementById('includeSensitive')];
+    configElements.forEach(element => {
+        element.disabled = !enabled;
+    });
+
+    logInfo('DEBUG', `Structured debug ${enabled ? 'enabled' : 'disabled'} - Level: ${level}, Categories: [${categories.join(', ')}], Sensitive: ${includeSensitive}`);
+}
+
+// Initialize debug configuration on page load
+function initializeDebugConfig() {
+    // Set initial state
+    updateDebugConfig();
+
+    // Add change listeners for multi-select categories
+    const categoriesSelect = document.getElementById('debugCategories');
+    categoriesSelect.addEventListener('change', updateDebugConfig);
+}
+
 // Import vanilla JS protobuf functions
 import { parseVaultContainer, parseVault, LibType } from './vault_pb.js';
 import { decryptWithAesGcm, fromBase64 } from './aes_gcm.js';
@@ -186,6 +227,10 @@ Promise.all([initMainWasm, initVsWasm, initVsSchnorrWasm])
             debugLog("vs_schnorr_wasm module failed to initialize - continuing without it");
         }
         debugLog("Application initialization complete");
+        
+        // Initialize debug configuration after WASM is ready
+        initializeDebugConfig();
+        
         hideLoader();
     })
     .catch(err => {
@@ -855,6 +900,11 @@ function displayJSONResults(resultData) {
     // Clear all sections first
     hideAllResultSections();
     
+    // Render structured debug events if present
+    if (resultData.debug && resultData.debug.enabled) {
+        renderStructuredDebugEvents(resultData.debug);
+    }
+    
     // Display each section with structured data
     displayShareDetails(resultData.shareDetails || resultData.share_details);
     displayPublicKeys(resultData.publicKeys || resultData.public_keys);
@@ -1456,6 +1506,69 @@ function displayResults(result) {
 
     resultDiv.innerHTML = html;
     debugLog('Results displayed successfully');
+}
+
+// Render structured debug events from debug payload
+function renderStructuredDebugEvents(debugPayload) {
+    if (!debugPayload || !debugPayload.enabled || !debugPayload.events || debugPayload.events.length === 0) {
+        return;
+    }
+
+    logInfo('DEBUG', `Rendering ${debugPayload.events.length} structured debug events`);
+
+    // Group events by level
+    const eventsByLevel = {
+        error: [],
+        warn: [],
+        info: [],
+        debug: []
+    };
+
+    debugPayload.events.forEach(event => {
+        const level = event.level.toLowerCase();
+        if (eventsByLevel[level]) {
+            eventsByLevel[level].push(event);
+        }
+    });
+
+    // Render events in each debug tab
+    Object.keys(eventsByLevel).forEach(level => {
+        const events = eventsByLevel[level];
+        const debugOutput = document.getElementById(`debugOutput-${level}`);
+        
+        if (debugOutput && events.length > 0) {
+            // Add structured debug header
+            debugOutput.textContent += `\n=== Structured Debug Events (${events.length}) ===\n`;
+            
+            events.forEach(event => {
+                let eventText = `[${event.timestamp}] [${event.category}] ${event.message}`;
+                
+                // Add phase and share info if present
+                if (event.phase) eventText += ` (Phase: ${event.phase})`;
+                if (event.share) eventText += ` (Share: ${event.share})`;
+                
+                // Add fields if present
+                if (event.fields && Object.keys(event.fields).length > 0) {
+                    eventText += `\n  Fields: ${JSON.stringify(event.fields, null, 2).split('\n').join('\n  ')}`;
+                }
+                
+                debugOutput.textContent += eventText + '\n';
+            });
+            
+            // Add summary
+            if (debugPayload.dropped > 0) {
+                debugOutput.textContent += `\n--- Note: ${debugPayload.dropped} events were dropped due to buffer limits ---\n`;
+            }
+            
+            debugOutput.scrollTop = debugOutput.scrollHeight;
+        }
+    });
+
+    // Show debug section if not already visible
+    const debugSection = document.getElementById('debugTabs');
+    if (debugSection && debugSection.style.display === 'none') {
+        toggleSection('debugTabs');
+    }
 }
 
 function toggleSection(sectionId) {
