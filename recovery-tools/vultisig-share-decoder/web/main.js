@@ -6,10 +6,54 @@ function hideLoader() {
     debugLog("UI initialized and ready");
 }
 
-function debugLog(message) {
+// Log levels for controlling verbosity
+const LOG_LEVELS = {
+    ERROR: 0,
+    WARN: 1, 
+    INFO: 2,
+    DEBUG: 3
+};
+
+// Default to INFO level (hides DEBUG messages)
+window.LOG_LEVEL = LOG_LEVELS.INFO;
+
+// Main logging function with levels and sections
+function log(level, section, message) {
+    if (level > window.LOG_LEVEL) return; // Skip if level too verbose
+    
     const debugOutput = document.getElementById('debugOutput');
-    const timestamp = new Date().toISOString();
-    debugOutput.textContent += `${timestamp}: ${message}\n`;
+    const timestamp = new Date().toISOString().split('T')[1].substring(0,8);
+    const levelName = Object.keys(LOG_LEVELS)[level] || 'LOG';
+    debugOutput.textContent += `[${section}] ${timestamp}: ${message}\n`;
+    debugOutput.scrollTop = debugOutput.scrollHeight;
+}
+
+// Convenience functions for different log levels
+function logError(section, message) { log(LOG_LEVELS.ERROR, section, message); }
+function logWarn(section, message) { log(LOG_LEVELS.WARN, section, message); }
+function logInfo(section, message) { log(LOG_LEVELS.INFO, section, message); }
+function logDebug(section, message) { log(LOG_LEVELS.DEBUG, section, message); }
+
+// Clear debug output when starting recovery
+function clearDebugOutput() {
+    const debugOutput = document.getElementById('debugOutput');
+    debugOutput.textContent = '';
+    logInfo('START', 'Recovery process initiated...');
+}
+
+// Legacy functions for backward compatibility - now route to DEBUG level (suppressed by default)
+function logSection(section, message) {
+    logInfo(section, message); // Keep existing logSection calls as INFO level
+}
+function debugLog(message) {
+    logDebug('DEBUG', message); // Route legacy debugLog to DEBUG (suppressed)
+}
+
+// Add verbose mode toggle for power users
+function toggleVerboseMode() {
+    window.LOG_LEVEL = window.LOG_LEVEL === LOG_LEVELS.DEBUG ? LOG_LEVELS.INFO : LOG_LEVELS.DEBUG;
+    const mode = window.LOG_LEVEL === LOG_LEVELS.DEBUG ? 'ON' : 'OFF';
+    logInfo('UI', `Verbose mode: ${mode}`);
 }
 
 // Import vanilla JS protobuf functions
@@ -178,209 +222,102 @@ window.copyToClipboard = copyToClipboard;
 
 // Parse and decrypt vault container following the reference implementation pattern
 async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA") {
-    debugLog(`Starting vault container parsing and decryption for ${algorithm} algorithm...`);
-
     try {
-        // Step 1: Try to decode as base64 if it's a string
+        // Decode base64 if needed
         let vaultContainerData = fileData;
         try {
             const base64String = new TextDecoder().decode(fileData);
             const decoded = fromBase64(base64String);
             if (decoded.length > 100) {
                 vaultContainerData = decoded;
-                debugLog("Successfully decoded base64 vault container data");
             }
         } catch (e) {
-            debugLog("Not base64 encoded, using raw data");
+            // Not base64, use raw data
         }
 
-        // Step 2: Parse as VaultContainer (encrypted vault)
-        let vaultContainer;
-        try {
-            vaultContainer = parseVaultContainer(vaultContainerData);
-            debugLog(`Parsed VaultContainer - version: ${vaultContainer.version}, encrypted: ${vaultContainer.isEncrypted}`);
-        } catch (error) {
-            debugLog(`Failed to parse as VaultContainer: ${error.message}`);
-            throw new Error("Could not parse file as VaultContainer");
-        }
+        // Parse vault container
+        const vaultContainer = parseVaultContainer(vaultContainerData);
 
-        // Step 3: Handle both encrypted and unencrypted vaults
+        // Decrypt vault if needed
         let vaultData;
         if (vaultContainer.isEncrypted) {
-            // Step 4a: Decrypt the vault using password
-            try {
-                const encryptedVaultBytes = fromBase64(vaultContainer.vault);
-                vaultData = await decryptWithAesGcm({
-                    key: password,
-                    value: encryptedVaultBytes
-                });
-                debugLog(`Successfully decrypted vault, ${vaultData.length} bytes`);
-            } catch (error) {
-                debugLog(`Decryption failed: ${error.message}`);
-                throw new Error(`Failed to decrypt vault: ${error.message}`);
-            }
+            const encryptedVaultBytes = fromBase64(vaultContainer.vault);
+            vaultData = await decryptWithAesGcm({
+                key: password,
+                value: encryptedVaultBytes
+            });
         } else {
-            // Step 4b: Use vault data directly (unencrypted)
-            try {
-                vaultData = fromBase64(vaultContainer.vault);
-                debugLog(`Using unencrypted vault data, ${vaultData.length} bytes`);
-            } catch (error) {
-                debugLog(`Failed to decode unencrypted vault: ${error.message}`);
-                throw new Error(`Failed to decode unencrypted vault: ${error.message}`);
-            }
+            vaultData = fromBase64(vaultContainer.vault);
         }
 
-        // Step 5: Parse the vault protobuf to extract vault info
-        let vault;
-        try {
-            vault = parseVault(vaultData);
-            debugLog(`Parsed vault: ${vault.name}, keyshares: ${vault.keyShares.length}, libType: ${vault.libType}`);
-            debugLog(`Vault ECDSA public key: ${vault.publicKeyEcdsa ? 'present' : 'not provided'}`);
-            debugLog(`Vault EdDSA public key: ${vault.publicKeyEddsa ? 'present' : 'not provided'}`);
-        } catch (error) {
-            debugLog(`Failed to parse vault protobuf: ${error.message}`);
-            throw new Error("Could not parse vault protobuf");
-        }
-
-        // Step 6: Sort keyshares by algorithm using the sortKeyshares function
+        // Parse vault and sort keyshares
+        const vault = parseVault(vaultData);
         const { ecdsaKeyshare, eddsaKeyshare } = sortKeyshares(vault);
         
-        // Step 7: Select the appropriate keyshare based on the algorithm parameter
-        let selectedKeyshare = null;
-        if (algorithm === "ECDSA") {
-            selectedKeyshare = ecdsaKeyshare;
-            debugLog(`Selected ECDSA keyshare for extraction`);
-        } else if (algorithm === "EdDSA") {
-            selectedKeyshare = eddsaKeyshare;
-            debugLog(`Selected EdDSA keyshare for extraction`);
-        } else {
-            throw new Error(`Unsupported algorithm: ${algorithm}. Must be "ECDSA" or "EdDSA"`);
-        }
-
-        // Step 8: Validate that the requested algorithm keyshare exists
+        // Select keyshare for requested algorithm
+        const selectedKeyshare = algorithm === "ECDSA" ? ecdsaKeyshare : eddsaKeyshare;
         if (!selectedKeyshare) {
-            debugLog(`No ${algorithm} keyshare found in vault`);
-            throw new Error(`No ${algorithm} keyshare found in vault. Available algorithms: ${ecdsaKeyshare ? 'ECDSA ' : ''}${eddsaKeyshare ? 'EdDSA' : ''}`);
+            throw new Error(`No ${algorithm} keyshare found in vault`);
         }
 
-        // Step 9: Extract keyshare data for the selected algorithm
+        // Extract and decode keyshare data
         const keyshareString = selectedKeyshare.keyshare;
         if (!keyshareString) {
             throw new Error(`No ${algorithm} keyshare data found`);
         }
 
-        debugLog(`Found ${algorithm} keyshare string: ${keyshareString.length} characters`);
-        debugLog(`${algorithm} keyshare public key: ${selectedKeyshare.publicKey}`);
-
-        // Try to decode the keyshare string as hex first, then base64
         let keyshareData;
         try {
             if (/^[0-9a-fA-F]+$/.test(keyshareString.trim())) {
                 // Hex encoded
                 const hexStr = keyshareString.trim();
                 keyshareData = new Uint8Array(hexStr.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-                debugLog(`Decoded ${algorithm} keyshare from hex, length: ${keyshareData.length}`);
             } else if (/^[A-Za-z0-9+/]+=*$/.test(keyshareString.trim())) {
                 // Base64 encoded
                 keyshareData = fromBase64(keyshareString.trim());
-                debugLog(`Decoded ${algorithm} keyshare from base64, length: ${keyshareData.length}`);
             } else {
-                // Use raw string bytes as fallback
+                // Raw string bytes as fallback
                 keyshareData = new TextEncoder().encode(keyshareString);
-                debugLog(`Using raw ${algorithm} keyshare string bytes, length: ${keyshareData.length}`);
             }
         } catch (e) {
-            // Use raw string bytes as fallback
             keyshareData = new TextEncoder().encode(keyshareString);
-            debugLog(`Decoding failed, using raw ${algorithm} keyshare string bytes, length: ${keyshareData.length}`);
         }
 
         if (keyshareData.length < 100) {
             throw new Error(`${algorithm} keyshare data too small, likely invalid`);
         }
 
-        debugLog(`Successfully extracted ${algorithm} keyshare data, length: ${keyshareData.length} bytes`);
+        logSection('PARSE', `${algorithm} keyshare extracted (${keyshareData.length} bytes)`);
         return keyshareData;
 
     } catch (error) {
-        debugLog(`${algorithm} vault parsing failed: ${error.message}`);
         throw new Error(`Failed to parse vault for ${algorithm}: ${error.message}`);
     }
 }
 
 // Function to sort keyshares by matching their public keys to vault ECDSA/EdDSA public keys
 function sortKeyshares(vault) {
-    debugLog("Starting keyshare sorting process...");
-    
-    if (!vault) {
-        debugLog("Error: vault is null or undefined");
+    if (!vault?.keyShares?.length) {
+        logSection('PARSE', 'No keyshares found in vault');
         return { ecdsaKeyshare: null, eddsaKeyshare: null };
     }
-    
-    if (!vault.keyShares || !Array.isArray(vault.keyShares)) {
-        debugLog("Error: vault.keyShares is not an array or is undefined");
-        return { ecdsaKeyshare: null, eddsaKeyshare: null };
-    }
-    
-    debugLog(`Found ${vault.keyShares.length} keyshares in vault`);
-    debugLog(`Vault ECDSA public key: ${vault.publicKeyEcdsa || 'not provided'}`);
-    debugLog(`Vault EdDSA public key: ${vault.publicKeyEddsa || 'not provided'}`);
     
     let ecdsaKeyshare = null;
     let eddsaKeyshare = null;
     
-    // Iterate through all keyshares and match them with vault public keys
-    for (let i = 0; i < vault.keyShares.length; i++) {
-        const keyshare = vault.keyShares[i];
-        debugLog(`Processing keyshare ${i + 1}:`);
-        
-        if (!keyshare.publicKey) {
-            debugLog(`  Keyshare ${i + 1}: No public key found, skipping`);
-            continue;
-        }
-        
-        debugLog(`  Keyshare ${i + 1} public key: ${keyshare.publicKey}`);
-        
-        // Match ECDSA keyshare
+    // Match keyshares to algorithms by public key
+    for (const keyshare of vault.keyShares) {
         if (vault.publicKeyEcdsa && keyshare.publicKey === vault.publicKeyEcdsa) {
             ecdsaKeyshare = keyshare;
-            debugLog(`  ✓ Keyshare ${i + 1} matched to ECDSA algorithm`);
         }
-        
-        // Match EdDSA keyshare
         if (vault.publicKeyEddsa && keyshare.publicKey === vault.publicKeyEddsa) {
             eddsaKeyshare = keyshare;
-            debugLog(`  ✓ Keyshare ${i + 1} matched to EdDSA algorithm`);
-        }
-        
-        // If keyshare doesn't match either, log it
-        if (vault.publicKeyEcdsa && vault.publicKeyEddsa && 
-            keyshare.publicKey !== vault.publicKeyEcdsa && 
-            keyshare.publicKey !== vault.publicKeyEddsa) {
-            debugLog(`  - Keyshare ${i + 1} does not match any vault public keys`);
         }
     }
     
-    // Log final results
-    debugLog(`Keyshare sorting complete:`);
-    debugLog(`  ECDSA keyshare: ${ecdsaKeyshare ? 'found' : 'not found'}`);
-    debugLog(`  EdDSA keyshare: ${eddsaKeyshare ? 'found' : 'not found'}`);
-    
-    // Warn if we expected to find keyshares but didn't
-    if (vault.publicKeyEcdsa && !ecdsaKeyshare) {
-        debugLog(`Warning: Vault has ECDSA public key but no matching keyshare was found`);
-    }
-    if (vault.publicKeyEddsa && !eddsaKeyshare) {
-        debugLog(`Warning: Vault has EdDSA public key but no matching keyshare was found`);
-    }
-    
-    // Provide helpful information if no keyshares were matched
-    if (!ecdsaKeyshare && !eddsaKeyshare) {
-        debugLog(`No keyshares matched to either algorithm. This could indicate:`);
-        debugLog(`  - Vault public keys don't match any keyshare public keys`);
-        debugLog(`  - Vault doesn't contain the expected public key fields`);
-        debugLog(`  - Keyshares don't contain the expected public key format`);
-    }
+    const ecdsaStatus = ecdsaKeyshare ? 'found' : 'not found';
+    const eddsaStatus = eddsaKeyshare ? 'found' : 'not found';
+    logSection('PARSE', `Keyshares sorted: ECDSA ${ecdsaStatus}, EdDSA ${eddsaStatus}`);
     
     return { ecdsaKeyshare, eddsaKeyshare };
 }
@@ -457,7 +394,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
 
     // Helper function to extract private key using a specific WASM module (reused from processDKLSWithWASM)
     async function extractPrivateKeyWithModule(module, moduleType) {
-        debugLog(`Starting ${moduleType} key extraction for JSON processing...`);
+        logInfo('EXTRACT', `Starting ${moduleType} key extraction...`);
         
         // Use explicit module references instead of shared destructuring to avoid naming conflicts
         let KeyExportSessionClass, KeyshareClass;
@@ -571,7 +508,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             }
         }
 
-        debugLog(`Successfully created ${algorithmKeyshares.length} ${moduleType} keyshares`);
+        logInfo('EXTRACT', `Created ${algorithmKeyshares.length} ${moduleType} keyshares`);
         
         const algorithmPartyIds = algorithmKeyshares.map((_, index) => `party${index + 1}`);
         debugLog(`Using ${moduleType} party IDs: ${algorithmPartyIds.join(', ')}`);
@@ -709,7 +646,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         }
 
         const algorithmPrivateKeyHex = Array.from(algorithmPrivateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Extracted ${moduleType} private key (${algorithmPrivateKeyBytes.length} bytes)`);
+        logInfo('EXTRACT', `${moduleType} private key extracted (${algorithmPrivateKeyBytes.length} bytes)`);
         
         // Also get public key and root chain code for reference using distinct keyshare reference
         const algorithmPublicKeyBytes = algorithmKeyshares[0].publicKey();
@@ -800,6 +737,9 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
 }
 
 async function recoverKeys() {
+    // Clear debug output and start fresh
+    clearDebugOutput();
+    
     const fileGroups = document.querySelectorAll('.file-group');
     const files = [];
     const passwords = [];
@@ -834,11 +774,10 @@ async function recoverKeys() {
         debugLog(`Selected scheme: ${selectedScheme}`);
 
         if (selectedScheme === 'dkls') {
-            debugLog("Processing with DKLS scheme using structured JSON...");
+            logInfo('PROCESS', `Processing ${files.length} DKLS files...`);
             await processDKLSWithJSON(files, passwords, fileNames);
         } else {
-            // Use the new JSON-enabled Go WASM processing for GG20 or auto-detect
-            debugLog("Processing with Go WASM (GG20/auto-detect) using JSON...");
+            logInfo('PROCESS', `Processing ${files.length} files with ${selectedScheme} scheme...`);
             await processWithJSONWASM(files, passwords, fileNames);
         }
 
