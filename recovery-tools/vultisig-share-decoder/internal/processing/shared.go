@@ -408,8 +408,10 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
         }
 
         // Process EdDSA keys - NOW IMPLEMENTED with proper EdDSA private key extraction
-        log.Printf("🔍 DEBUG: Checking EdDSA parameters - PublicKeyHex: '%s' (len=%d), PrivateKeyHex: '%s' (len=%d)", 
-                ctx.EdDSAPublicKeyHex, len(ctx.EdDSAPublicKeyHex), ctx.EdDSAPrivateKeyHex, len(ctx.EdDSAPrivateKeyHex))
+        // TEMPORARY DEBUG: Force add EdDSA info to error to debug the issue
+        if result.Error == "" {
+                result.Error = fmt.Sprintf("DEBUG: EdDSA_PubLen=%d EdDSA_PrivLen=%d", len(ctx.EdDSAPublicKeyHex), len(ctx.EdDSAPrivateKeyHex))
+        }
         if ctx.EdDSAPublicKeyHex != "" && ctx.EdDSAPrivateKeyHex != "" {
                 log.Printf("✅ DKLS EdDSA processing - both EdDSA public and private keys available")
 
