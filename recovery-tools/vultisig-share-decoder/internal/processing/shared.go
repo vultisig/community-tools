@@ -407,37 +407,9 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                 }
         }
 
-        // Process EdDSA keys - NOW IMPLEMENTED with proper EdDSA private key extraction
-        // TEMPORARY DEBUG: Force add EdDSA info to error to debug the issue
-        if result.Error == "" {
-                result.Error = fmt.Sprintf("DEBUG: EdDSA_PubLen=%d EdDSA_PrivLen=%d", len(ctx.EdDSAPublicKeyHex), len(ctx.EdDSAPrivateKeyHex))
-        }
-        if ctx.EdDSAPublicKeyHex != "" && ctx.EdDSAPrivateKeyHex != "" {
-                log.Printf("✅ DKLS EdDSA processing - both EdDSA public and private keys available")
-
-                eddsaPrivateKeyBytes, err := hex.DecodeString(ctx.EdDSAPrivateKeyHex)
-                if err != nil {
-                        log.Printf("❌ Failed to decode EdDSA private key: %v", err)
-                } else {
-                        // Convert to big.Int for compatibility with processor
-                        eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
-
-                        // Use the EdDSA processor directly (bypass TSS reconstruction)
-                        processor := &EdDSAKeyProcessor{}
-                        eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, syntheticSecrets)
-                        if err != nil {
-                                log.Printf("❌ EdDSA processing failed: %v", err)
-                        } else {
-                                log.Printf("✅ EdDSA processing successful - EdDSA chains (Solana, Sui, TON) now available!")
-                                result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-                                result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
-                        }
-                }
-        } else if ctx.EdDSAPublicKeyHex != "" {
-                log.Printf("⚠️  DKLS EdDSA public key available but private key missing - EdDSA extraction may have failed")
+        // Process EdDSA keys - TEMPORARY TEST: Just force set EdDSA public key to test assignment
+        if ctx.EdDSAPublicKeyHex != "" {
                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-        } else {
-                log.Printf("ℹ️  No EdDSA keys in DKLS vault - EdDSA chains (Solana, Sui, TON) not available")
         }
 
         return nil
