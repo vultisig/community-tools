@@ -408,42 +408,42 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
         }
 
         // Process EdDSA keys - NOW IMPLEMENTED with proper EdDSA private key extraction
+        debugInfo := fmt.Sprintf("DEBUG_EdDSA_PubLen:%d_PrivLen:%d", len(ctx.EdDSAPublicKeyHex), len(ctx.EdDSAPrivateKeyHex))
+        
         if ctx.EdDSAPublicKeyHex != "" && ctx.EdDSAPrivateKeyHex != "" {
-                log.Printf("✅ DKLS EdDSA processing - both EdDSA public and private keys available")
-
                 eddsaPrivateKeyBytes, err := hex.DecodeString(ctx.EdDSAPrivateKeyHex)
                 if err != nil {
-                        log.Printf("❌ Failed to decode EdDSA private key: %v", err)
+                        debugInfo += "_DECODE_FAILED:" + err.Error()
+                        result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                 } else {
+                        debugInfo += "_DECODE_SUCCESS"
                         // Convert to big.Int for compatibility with processor
                         eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
 
                         // Use the EdDSA processor directly (bypass TSS reconstruction)
-                        log.Printf("🔍 Starting EdDSA processor with private key length: %d", eddsaPrivateKeyBigInt.BitLen())
                         processor := &EdDSAKeyProcessor{}
                         eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, syntheticSecrets)
                         if err != nil {
-                                log.Printf("❌ EdDSA processing failed: %v", err)
-                                // Still set the public key even if coin processing fails
+                                debugInfo += "_PROCESSING_FAILED:" + err.Error()
                                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                         } else {
-                                log.Printf("✅ EdDSA processing successful - generated %d coin keys", len(eddsaResult.CoinKeys))
+                                debugInfo += fmt.Sprintf("_PROCESSING_SUCCESS_COINS:%d", len(eddsaResult.CoinKeys))
                                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-                                
-                                // Debug: log each EdDSA coin key before adding
-                                for i, coinKey := range eddsaResult.CoinKeys {
-                                        log.Printf("🔍 EdDSA coin %d: %s", i, coinKey.Name)
-                                }
-                                
                                 result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
-                                log.Printf("✅ Total coin keys after EdDSA: %d", len(result.CoinKeys))
                         }
                 }
         } else if ctx.EdDSAPublicKeyHex != "" {
-                log.Printf("⚠️  DKLS EdDSA public key available but private key missing - EdDSA extraction may have failed")
+                debugInfo += "_PUBLIC_ONLY"
                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
         } else {
-                log.Printf("ℹ️  No EdDSA keys in DKLS vault - EdDSA chains (Solana, Sui, TON) not available")
+                debugInfo += "_NO_KEYS"
+        }
+        
+        // Add debug info to error field for visibility
+        if result.Error == "" {
+                result.Error = debugInfo
+        } else {
+                result.Error = result.Error + " | " + debugInfo
         }
 
         return nil
