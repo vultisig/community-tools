@@ -420,46 +420,32 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                 }
         }
 
-        // Process EdDSA keys using direct handler calls (DKLS keys are already correctly formatted)
-        if ctx.EdDSAPublicKeyHex != "" && ctx.EdDSAPrivateKeyHex != "" {
+        // Process EdDSA keys if we have the required data (matching ECDSA pattern)
+        if ctx.EdDSAPrivateKeyHex != "" {
                 eddsaPrivateKeyBytes, err := hex.DecodeString(ctx.EdDSAPrivateKeyHex)
                 if err != nil {
-                        log.Printf("Failed to decode EdDSA private key: %v", err)
-                        result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
+                        return fmt.Errorf("failed to decode EdDSA private key: %w", err)
+                }
+
+                // Convert to big.Int for compatibility with processor
+                eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
+
+                // Use the EdDSA processor directly (bypass TSS reconstruction)
+                processor := &EdDSAKeyProcessor{}
+                eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, nil)
+                if err != nil {
+                        log.Printf("EdDSA processing failed: %v", err)
+                        Debug().Emit(ERROR, "EdDSA", "EdDSA processing failed", map[string]any{
+                                "error": err.Error(),
+                        })
                 } else {
-                        eddsaPublicKeyBytes, err := hex.DecodeString(ctx.EdDSAPublicKeyHex)
-                        if err != nil {
-                                log.Printf("Failed to decode EdDSA public key: %v", err)
-                                result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-                        } else {
-                                // Add EdDSA info to rootKeyInfo similar to ECDSA
-                                if result.RootKeyInfo != nil {
-                                        result.RootKeyInfo.HexPubKeyEdDSA = ctx.EdDSAPublicKeyHex
-                                        result.RootKeyInfo.HexPrivKeyEdDSA = ctx.EdDSAPrivateKeyHex
-                                }
-
-                                // For DKLS, call EdDSA handlers directly with the extracted key bytes
-                                // (bypasses TSS processing which is already done by DKLS extraction)
-                                eddsaCoins := GetEnhancedEdDSACoins()
-                                for _, coin := range eddsaCoins {
-                                        // Check if the coin has an EdDSA handler
-                                        if coin.EdDSAHandler == nil {
-                                                log.Printf("No EdDSA handler found for coin: %s", coin.Name)
-                                                continue
-                                        }
-
-                                        // Use the EdDSA handler directly with the correct key bytes
-                                        coinInfo, err := coin.EdDSAHandler(eddsaPrivateKeyBytes, eddsaPublicKeyBytes, coin)
-                                        if err != nil {
-                                                log.Printf("Error processing DKLS EdDSA coin %s: %v", coin.Name, err)
-                                                continue
-                                        }
-
-                                        result.CoinKeys = append(result.CoinKeys, coinInfo)
-                                }
-
-                                result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
+                        // Add EdDSA info to rootKeyInfo similar to ECDSA
+                        if result.RootKeyInfo != nil {
+                                result.RootKeyInfo.HexPubKeyEdDSA = ctx.EdDSAPublicKeyHex
+                                result.RootKeyInfo.HexPrivKeyEdDSA = ctx.EdDSAPrivateKeyHex
                         }
+                        result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
+                        result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
                 }
         } else if ctx.EdDSAPublicKeyHex != "" {
                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
