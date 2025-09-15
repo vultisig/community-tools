@@ -239,6 +239,8 @@ window.recoverKeys = recoverKeys;
 window.toggleSection = toggleSection;
 window.checkBalance = checkBalance;
 window.copyToClipboard = copyToClipboard;
+window.switchDebugTab = switchDebugTab;
+window.toggleVerboseMode = toggleVerboseMode;
 
 // Parse and decrypt vault container following the reference implementation pattern
 async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA", shareName = '') {
