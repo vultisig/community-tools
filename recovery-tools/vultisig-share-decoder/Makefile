@@ -13,8 +13,15 @@ wasm:
 build: all
 
 test:
-	@echo "Running tests..."
+	@echo "Running Go tests..."
 	go test ./...
+
+test-js:
+	@echo "Running JavaScript tests..."
+	node test/config_test.js
+
+test-all: test test-js
+	@echo "All tests completed successfully!"
 
 check:
 	@echo "Checking code formatting..."
@@ -27,4 +34,4 @@ clean:
 	rm -rf dist/
 	rm -f static/main.wasm
 
-.PHONY: all webserver wasm build test check clean
+.PHONY: all webserver wasm build test test-js test-all check clean
