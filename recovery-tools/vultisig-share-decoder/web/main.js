@@ -115,7 +115,7 @@ function updateDebugConfig() {
     });
     
     // Update the parent container visual state
-    const configGroup = document.querySelector('.debug-config-group');
+    const configGroup = document.querySelector('.debug-options');
     if (configGroup) {
         if (enabled) {
             configGroup.style.opacity = '1';

@@ -208,137 +208,96 @@ h1 {
     margin-bottom: 1rem;
 }
 
+.debug-config-content {
+    background-color: rgba(169, 169, 233, 0.05);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+}
+
 .debug-controls {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem;
-    padding: 1.5rem;
-    background-color: rgba(169, 169, 233, 0.1);
-    border-radius: var(--border-radius);
-    border: 1px solid rgba(169, 169, 233, 0.2);
-    margin-top: 1rem;
+    gap: 1rem;
 }
 
-.debug-config-group {
+.debug-options {
     display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-    padding: 1.5rem;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.5rem;
     background-color: rgba(0, 255, 204, 0.05);
     border-radius: var(--border-radius);
     border-left: 3px solid var(--primary-color);
-    transition: all 0.3s ease;
 }
 
-.debug-config-row {
+.debug-option {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
-.debug-config-item {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
+.debug-option label {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.debug-option select {
+    background-color: var(--secondary-color);
+    border: 1px solid rgba(169, 169, 233, 0.3);
+    border-radius: 4px;
+    color: var(--text-color);
+    padding: 0.4rem;
+    font-size: 0.85rem;
+    min-width: 100px;
+}
+
+.debug-option select[multiple] {
+    min-height: 60px;
     min-width: 150px;
 }
 
-.debug-config-group label {
-    color: var(--text-color);
-    font-size: 0.95rem;
-    font-weight: 500;
-    margin-bottom: 0.25rem;
-    display: block;
-}
-
-.debug-config-item label {
-    margin-bottom: 0.5rem;
-}
-
-.debug-config-group select {
-    background-color: var(--secondary-color);
-    border: 1px solid rgba(169, 169, 233, 0.3);
-    border-radius: 6px;
-    color: var(--text-color);
-    padding: 0.75rem;
-    font-size: 0.9rem;
-    min-width: 180px;
-    transition: all 0.2s ease;
-}
-
-.debug-config-group select[multiple] {
-    min-height: 120px;
-    min-width: 280px;
-    max-width: 400px;
-}
-
-.debug-config-group select:focus {
+.debug-option select:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(0, 255, 204, 0.15);
+    box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.2);
 }
 
-.debug-config-group select:disabled {
+.debug-option select:disabled {
     opacity: 0.5;
     cursor: not-allowed;
-    background-color: rgba(15, 52, 96, 0.5);
 }
 
 .debug-checkbox,
-.sensitive-checkbox {
+.sensitive-checkbox,
+.verbose-checkbox {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
     color: var(--text-color);
-    font-size: 1rem;
+    font-size: 0.9rem;
     cursor: pointer;
-    padding: 0.75rem;
-    border-radius: 6px;
-    transition: background-color 0.2s ease;
-}
-
-.debug-checkbox:hover,
-.sensitive-checkbox:hover {
-    background-color: rgba(0, 255, 204, 0.05);
 }
 
 .debug-checkbox input[type="checkbox"],
-.sensitive-checkbox input[type="checkbox"] {
-    width: 18px;
-    height: 18px;
+.sensitive-checkbox input[type="checkbox"],
+.verbose-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
     accent-color: var(--primary-color);
-    cursor: pointer;
 }
 
 .sensitive-checkbox {
     color: var(--error-color);
     font-weight: 500;
-    background-color: rgba(255, 68, 68, 0.05);
-    border: 1px solid rgba(255, 68, 68, 0.2);
-}
-
-.sensitive-checkbox:hover {
-    background-color: rgba(255, 68, 68, 0.1);
 }
 
 .verbose-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
     color: var(--accent-color);
-    font-size: 0.9rem;
-    cursor: pointer;
-    padding: 0.5rem;
     border-top: 1px solid rgba(169, 169, 233, 0.2);
+    padding-top: 0.5rem;
     margin-top: 0.5rem;
-    padding-top: 1rem;
-}
-
-.verbose-checkbox input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--accent-color);
 }
 
 /* Debug tabs */
