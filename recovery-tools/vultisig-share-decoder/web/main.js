@@ -735,7 +735,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         let resultData;
         try {
             resultData = JSON.parse(jsonResult);
-            debugLog("Successfully parsed ProcessDKLSFileContentJSON result:", resultData);
+            logInfo('DKLS', 'Processing completed successfully');
         } catch (parseError) {
             debugLog(`Error parsing ProcessDKLSFileContentJSON result: ${parseError.message}`);
             throw new Error(`Failed to parse ProcessDKLSFileContentJSON result: ${parseError.message}`);
@@ -747,10 +747,9 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         }
 
         // Display results using the structured JSON approach (same as GG20)
-        debugLog("Displaying DKLS results using structured JSON format...");
         displayJSONResults(resultData);
 
-        debugLog("DKLS JSON processing completed successfully");
+        logInfo('DKLS', 'JSON processing completed successfully');
 
     } catch (error) {
         const errorMsg = error.message || error || "Unknown error";
@@ -826,9 +825,7 @@ async function processWithJSONWASM(files, passwords, fileNames) {
         let resultData;
         try {
             resultData = JSON.parse(jsonResult);
-            debugLog("Successfully parsed JSON result:", resultData);
-            debugLog("JSON result keys:", Object.keys(resultData));
-            debugLog("JSON result structure:", JSON.stringify(resultData, null, 2));
+            logInfo('PARSE', 'JSON result parsed successfully');
         } catch (parseError) {
             debugLog(`Error parsing JSON: ${parseError.message}`);
             debugLog("Falling back to string display");
@@ -853,8 +850,7 @@ async function processWithJSONWASM(files, passwords, fileNames) {
 
 // Function to display results from JSON data structure
 function displayJSONResults(resultData) {
-    debugLog("Displaying JSON results:", resultData);
-    debugLog("Available keys in resultData:", Object.keys(resultData));
+    logInfo('DISPLAY', 'Rendering results interface');
     
     // Clear all sections first
     hideAllResultSections();
@@ -879,7 +875,6 @@ function hideAllResultSections() {
 }
 
 function displayShareDetails(shareDetails) {
-    debugLog("Share details found:", shareDetails);
     
     if (!shareDetails || shareDetails.length === 0) {
         debugLog("No share details found");
@@ -888,7 +883,6 @@ function displayShareDetails(shareDetails) {
     
     let html = '';
     shareDetails.forEach((shareDetail, index) => {
-        debugLog("Processing share detail:", shareDetail);
         html += `
             <div class="share-detail-card">
                 <h4>Share ${index + 1}</h4>
@@ -1056,7 +1050,6 @@ function getCryptoIcon(coinName) {
 }
 
 function displayCoinKeys(coinKeys) {
-    debugLog("Coin keys found:", coinKeys);
     
     if (!coinKeys || coinKeys.length === 0) {
         debugLog("No coin keys found");
@@ -1066,7 +1059,6 @@ function displayCoinKeys(coinKeys) {
     let html = '';
     
     coinKeys.forEach((coinKey, index) => {
-        debugLog("Processing coin key:", coinKey);
         
         const coinName = coinKey.name || coinKey.coin_name || "Unknown";
         const address = coinKey.address || "N/A";
