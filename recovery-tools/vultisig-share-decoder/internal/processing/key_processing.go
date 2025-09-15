@@ -244,17 +244,17 @@ type EdDSAKeyProcessor struct{}
 
 func (p *EdDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []utils.TempLocalState) (*ProcessingResult, error) {
         // Generate Ed25519 key pair
-        // Ensure the private key is exactly 32 bytes and within valid range for Ed25519
-        tssPrivateKeyBytes := tssPrivateKey.Bytes()
+        // Ed25519 curve order: 2^252 + 27742317777372353535851937790883648493
+        curveOrder := new(big.Int)
+        curveOrder.SetString("7237005577332262213973186563042994240857116359379907606001950938285454250989", 10)
         
-        // If the key is longer than 32 bytes, take only the last 32 bytes
-        // If shorter, pad with leading zeros
+        // Reduce the private key modulo the curve order to ensure it's valid for Ed25519
+        reducedPrivateKey := new(big.Int).Mod(tssPrivateKey, curveOrder)
+        
+        // Convert to 32-byte array with proper padding
+        reducedBytes := reducedPrivateKey.Bytes()
         var tssPrivateKeyScalar [32]byte
-        if len(tssPrivateKeyBytes) > 32 {
-                copy(tssPrivateKeyScalar[:], tssPrivateKeyBytes[len(tssPrivateKeyBytes)-32:])
-        } else {
-                copy(tssPrivateKeyScalar[32-len(tssPrivateKeyBytes):], tssPrivateKeyBytes)
-        }
+        copy(tssPrivateKeyScalar[32-len(reducedBytes):], reducedBytes)
         
         privateKey, publicKey, err := edwards.PrivKeyFromScalar(tssPrivateKeyScalar[:])
         if err != nil {
