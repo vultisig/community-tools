@@ -73,10 +73,10 @@ func ResetDebug() {
 // NoOpCollector implements Debugger with zero overhead when debugging is disabled
 type NoOpCollector struct{}
 
-func (n *NoOpCollector) Enabled() bool                                                            { return false }
-func (n *NoOpCollector) Level() DebugLevel                                                        { return ERROR }
+func (n *NoOpCollector) Enabled() bool                                                          { return false }
+func (n *NoOpCollector) Level() DebugLevel                                                      { return ERROR }
 func (n *NoOpCollector) Emit(level DebugLevel, category, message string, fields map[string]any) {}
-func (n *NoOpCollector) With(fields map[string]any) Debugger                                      { return n }
+func (n *NoOpCollector) With(fields map[string]any) Debugger                                    { return n }
 func (n *NoOpCollector) Flush() DebugPayload {
 	return DebugPayload{
 		Enabled:    false,
@@ -187,7 +187,7 @@ func (a *ActiveCollector) Flush() DebugPayload {
 
 	// Copy events from ring buffer in correct order
 	events := make([]DebugEvent, 0, a.size)
-	
+
 	if a.size > 0 {
 		start := a.head - a.size
 		if start < 0 {
@@ -276,12 +276,12 @@ func (c *ContextualCollector) Level() DebugLevel {
 func (c *ContextualCollector) Emit(level DebugLevel, category, message string, fields map[string]any) {
 	// Merge context fields with provided fields
 	mergedFields := make(map[string]any)
-	
+
 	// Add context fields first
 	for k, v := range c.context {
 		mergedFields[k] = v
 	}
-	
+
 	// Add provided fields (they override context)
 	for k, v := range fields {
 		mergedFields[k] = v

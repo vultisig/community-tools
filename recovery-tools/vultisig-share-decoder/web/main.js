@@ -89,8 +89,10 @@ function updateDebugConfig() {
     // Configure debug settings via WASM
     if (typeof SetDebugConfig === 'function') {
         try {
+            // Log what we're sending to WASM for debugging
+            console.log('Sending to WASM SetDebugConfig:', { enabled, level, categories, includeSensitive });
             const result = SetDebugConfig(enabled, level, categories, includeSensitive);
-            logInfo('DEBUG', `Debug config updated: ${result}`);
+            logInfo('DEBUG', `Debug config updated: ${result} - Sent level: ${level}`);
         } catch (error) {
             logError('DEBUG', `Failed to update debug config: ${error.message}`);
         }

@@ -4,302 +4,302 @@
 package main
 
 import (
-        "fmt"
-        "io"
-        "log"
-        "main/internal/processing"
-        "main/internal/utils"
-        "os"
-        "syscall/js"
+	"fmt"
+	"io"
+	"log"
+	"main/internal/processing"
+	"main/internal/utils"
+	"os"
+	"syscall/js"
 )
 
 func main() {
-        if os.Getenv("ENABLE_LOGGING") != "true" {
-                log.SetOutput(io.Discard)
-        }
-        log.SetFlags(log.Lshortfile | log.LstdFlags)
-        log.Println("Starting WASM application...")
+	if os.Getenv("ENABLE_LOGGING") != "true" {
+		log.SetOutput(io.Discard)
+	}
+	log.SetFlags(log.Lshortfile | log.LstdFlags)
+	log.Println("Starting WASM application...")
 
-        c := make(chan struct{}, 0)
+	c := make(chan struct{}, 0)
 
-        // JSON-only WASM endpoints
+	// JSON-only WASM endpoints
 
-        // ProcessFilesJSON - Process vault files and return JSON
-        js.Global().Set("ProcessFilesJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-                // args[0] = file contents
-                // args[1] = passwords
-                // args[2] = filenames
-                var fileInfos []utils.FileInfo
-                passwords := make([]string, args[1].Length())
+	// ProcessFilesJSON - Process vault files and return JSON
+	js.Global().Set("ProcessFilesJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// args[0] = file contents
+		// args[1] = passwords
+		// args[2] = filenames
+		var fileInfos []utils.FileInfo
+		passwords := make([]string, args[1].Length())
 
-                // Convert file data and create FileInfo objects
-                for i := 0; i < args[0].Length(); i++ {
-                        jsArray := args[0].Index(i)
-                        data := make([]byte, jsArray.Length())
-                        for j := 0; j < jsArray.Length(); j++ {
-                                data[j] = byte(jsArray.Index(j).Int())
-                        }
+		// Convert file data and create FileInfo objects
+		for i := 0; i < args[0].Length(); i++ {
+			jsArray := args[0].Index(i)
+			data := make([]byte, jsArray.Length())
+			for j := 0; j < jsArray.Length(); j++ {
+				data[j] = byte(jsArray.Index(j).Int())
+			}
 
-                        // Get the actual filename from the third argument
-                        filename := args[2].Index(i).String()
+			// Get the actual filename from the third argument
+			filename := args[2].Index(i).String()
 
-                        fileInfos = append(fileInfos, utils.FileInfo{
-                                Name:    filename,
-                                Content: data,
-                        })
-                }
+			fileInfos = append(fileInfos, utils.FileInfo{
+				Name:    filename,
+				Content: data,
+			})
+		}
 
-                // Convert passwords
-                for i := 0; i < args[1].Length(); i++ {
-                        passwords[i] = args[1].Index(i).String()
-                }
+		// Convert passwords
+		for i := 0; i < args[1].Length(); i++ {
+			passwords[i] = args[1].Index(i).String()
+		}
 
-                // Process the files and return JSON
-                result, err := processing.ProcessFileContentJSON(fileInfos, passwords, utils.Web)
-                
-                // Capture debug information and attach to result
-                debugPayload := processing.Debug().Flush()
-                if debugPayload.Enabled {
-                        if err != nil {
-                                errorResult := processing.ProcessResult{
-                                        Success: false,
-                                        Error:   err.Error(),
-                                        Debug:   &debugPayload,
-                                }
-                                jsonStr, _ := processing.ToJSON(errorResult)
-                                return jsonStr
-                        }
-                        result.Debug = &debugPayload
-                } else {
-                        if err != nil {
-                                errorResult := processing.ProcessResult{
-                                        Success: false,
-                                        Error:   err.Error(),
-                                }
-                                jsonStr, _ := processing.ToJSON(errorResult)
-                                return jsonStr
-                        }
-                }
+		// Process the files and return JSON
+		result, err := processing.ProcessFileContentJSON(fileInfos, passwords, utils.Web)
 
-                jsonStr, err := processing.ToJSON(result)
-                if err != nil {
-                        errorResult := processing.ProcessResult{
-                                Success: false,
-                                Error:   fmt.Sprintf("Error converting to JSON: %v", err),
-                        }
-                        if debugPayload.Enabled {
-                                errorResult.Debug = &debugPayload
-                        }
-                        fallbackJSON, _ := processing.ToJSON(errorResult)
-                        return fallbackJSON
-                }
-                return jsonStr
-        }))
+		// Capture debug information and attach to result
+		debugPayload := processing.Debug().Flush()
+		if debugPayload.Enabled {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+					Debug:   &debugPayload,
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
+			}
+			result.Debug = &debugPayload
+		} else {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
+			}
+		}
 
-        // DeriveAndShowKeysJSON - JSON version of DeriveAndShowKeys
-        js.Global().Set("DeriveAndShowKeysJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-                if args[0].IsNull() || args[1].IsNull() {
-                        errorResult := processing.DeriveKeysResult{
-                                Success: false,
-                                Error:   "rootPrivateKeyHex and rootChainCodeHex are required",
-                        }
-                        jsonStr, _ := processing.ToJSON(errorResult)
-                        return jsonStr
-                }
+		jsonStr, err := processing.ToJSON(result)
+		if err != nil {
+			errorResult := processing.ProcessResult{
+				Success: false,
+				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			if debugPayload.Enabled {
+				errorResult.Debug = &debugPayload
+			}
+			fallbackJSON, _ := processing.ToJSON(errorResult)
+			return fallbackJSON
+		}
+		return jsonStr
+	}))
 
-                rootPrivateKeyHex := args[0].String()
-                rootChainCodeHex := args[1].String()
+	// DeriveAndShowKeysJSON - JSON version of DeriveAndShowKeys
+	js.Global().Set("DeriveAndShowKeysJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if args[0].IsNull() || args[1].IsNull() {
+			errorResult := processing.DeriveKeysResult{
+				Success: false,
+				Error:   "rootPrivateKeyHex and rootChainCodeHex are required",
+			}
+			jsonStr, _ := processing.ToJSON(errorResult)
+			return jsonStr
+		}
 
-                // Check for optional EdDSA keys
-                var eddsaPrivateKeyHex, eddsaPublicKeyHex string
-                if len(args) >= 4 && !args[2].IsNull() && !args[3].IsNull() {
-                        eddsaPrivateKeyHex = args[2].String()
-                        eddsaPublicKeyHex = args[3].String()
-                }
+		rootPrivateKeyHex := args[0].String()
+		rootChainCodeHex := args[1].String()
 
-                result, err := processing.DeriveAndShowKeysJSON(rootPrivateKeyHex, rootChainCodeHex, eddsaPrivateKeyHex, eddsaPublicKeyHex)
-                
-                // Capture debug information and attach to result
-                debugPayload := processing.Debug().Flush()
-                if debugPayload.Enabled {
-                        result.Debug = &debugPayload
-                }
-                
-                if err != nil {
-                        // Error result is already in result struct
-                        jsonStr, _ := processing.ToJSON(result)
-                        return jsonStr
-                }
+		// Check for optional EdDSA keys
+		var eddsaPrivateKeyHex, eddsaPublicKeyHex string
+		if len(args) >= 4 && !args[2].IsNull() && !args[3].IsNull() {
+			eddsaPrivateKeyHex = args[2].String()
+			eddsaPublicKeyHex = args[3].String()
+		}
 
-                jsonStr, err := processing.ToJSON(result)
-                if err != nil {
-                        errorResult := processing.DeriveKeysResult{
-                                Success: false,
-                                Error:   fmt.Sprintf("Error converting to JSON: %v", err),
-                        }
-                        if debugPayload.Enabled {
-                                errorResult.Debug = &debugPayload
-                        }
-                        fallbackJSON, _ := processing.ToJSON(errorResult)
-                        return fallbackJSON
-                }
-                return jsonStr
-        }))
+		result, err := processing.DeriveAndShowKeysJSON(rootPrivateKeyHex, rootChainCodeHex, eddsaPrivateKeyHex, eddsaPublicKeyHex)
 
-        // ProcessDKLSFileContentJSON - Process DKLS files and return structured JSON (same format as GG20)
-        js.Global().Set("ProcessDKLSFileContentJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-                // args[0] = file contents (array)
-                // args[1] = passwords (array)
-                // args[2] = filenames (array)
-                // args[3] = ecdsaPrivateKeyHex (string)
-                // args[4] = rootChainCodeHex (string)
-                // args[5] = eddsaPublicKeyHex (string)
-                // args[6] = eddsaPrivateKeyHex (string) - NEW!
+		// Capture debug information and attach to result
+		debugPayload := processing.Debug().Flush()
+		if debugPayload.Enabled {
+			result.Debug = &debugPayload
+		}
 
-                if len(args) < 7 {
-                        errorResult := processing.ProcessResult{
-                                Success: false,
-                                Error:   "ProcessDKLSFileContentJSON requires 7 arguments: files, passwords, filenames, ecdsaPrivateKeyHex, rootChainCodeHex, eddsaPublicKeyHex, eddsaPrivateKeyHex",
-                        }
-                        jsonStr, _ := processing.ToJSON(errorResult)
-                        return jsonStr
-                }
+		if err != nil {
+			// Error result is already in result struct
+			jsonStr, _ := processing.ToJSON(result)
+			return jsonStr
+		}
 
-                var fileInfos []utils.FileInfo
-                passwords := make([]string, args[1].Length())
+		jsonStr, err := processing.ToJSON(result)
+		if err != nil {
+			errorResult := processing.DeriveKeysResult{
+				Success: false,
+				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			if debugPayload.Enabled {
+				errorResult.Debug = &debugPayload
+			}
+			fallbackJSON, _ := processing.ToJSON(errorResult)
+			return fallbackJSON
+		}
+		return jsonStr
+	}))
 
-                // Convert file data and create FileInfo objects
-                for i := 0; i < args[0].Length(); i++ {
-                        jsArray := args[0].Index(i)
-                        data := make([]byte, jsArray.Length())
-                        for j := 0; j < jsArray.Length(); j++ {
-                                data[j] = byte(jsArray.Index(j).Int())
-                        }
+	// ProcessDKLSFileContentJSON - Process DKLS files and return structured JSON (same format as GG20)
+	js.Global().Set("ProcessDKLSFileContentJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		// args[0] = file contents (array)
+		// args[1] = passwords (array)
+		// args[2] = filenames (array)
+		// args[3] = ecdsaPrivateKeyHex (string)
+		// args[4] = rootChainCodeHex (string)
+		// args[5] = eddsaPublicKeyHex (string)
+		// args[6] = eddsaPrivateKeyHex (string) - NEW!
 
-                        // Get the actual filename from the third argument
-                        filename := args[2].Index(i).String()
+		if len(args) < 7 {
+			errorResult := processing.ProcessResult{
+				Success: false,
+				Error:   "ProcessDKLSFileContentJSON requires 7 arguments: files, passwords, filenames, ecdsaPrivateKeyHex, rootChainCodeHex, eddsaPublicKeyHex, eddsaPrivateKeyHex",
+			}
+			jsonStr, _ := processing.ToJSON(errorResult)
+			return jsonStr
+		}
 
-                        fileInfos = append(fileInfos, utils.FileInfo{
-                                Name:    filename,
-                                Content: data,
-                        })
-                }
+		var fileInfos []utils.FileInfo
+		passwords := make([]string, args[1].Length())
 
-                // Convert passwords
-                for i := 0; i < args[1].Length(); i++ {
-                        passwords[i] = args[1].Index(i).String()
-                }
+		// Convert file data and create FileInfo objects
+		for i := 0; i < args[0].Length(); i++ {
+			jsArray := args[0].Index(i)
+			data := make([]byte, jsArray.Length())
+			for j := 0; j < jsArray.Length(); j++ {
+				data[j] = byte(jsArray.Index(j).Int())
+			}
 
-                // Get the key parameters
-                ecdsaPrivateKeyHex := args[3].String()
-                rootChainCodeHex := args[4].String()
-                eddsaPublicKeyHex := args[5].String()
-                eddsaPrivateKeyHex := args[6].String()
+			// Get the actual filename from the third argument
+			filename := args[2].Index(i).String()
 
-                // Process the DKLS files and return JSON
-                result, err := processing.ProcessDKLSFileContentJSON(fileInfos, passwords, ecdsaPrivateKeyHex, rootChainCodeHex, eddsaPublicKeyHex, eddsaPrivateKeyHex)
-                
-                // Capture debug information and attach to result
-                debugPayload := processing.Debug().Flush()
-                if debugPayload.Enabled {
-                        if err != nil {
-                                errorResult := processing.ProcessResult{
-                                        Success: false,
-                                        Error:   err.Error(),
-                                        Debug:   &debugPayload,
-                                }
-                                jsonStr, _ := processing.ToJSON(errorResult)
-                                return jsonStr
-                        }
-                        result.Debug = &debugPayload
-                } else {
-                        if err != nil {
-                                errorResult := processing.ProcessResult{
-                                        Success: false,
-                                        Error:   err.Error(),
-                                }
-                                jsonStr, _ := processing.ToJSON(errorResult)
-                                return jsonStr
-                        }
-                }
+			fileInfos = append(fileInfos, utils.FileInfo{
+				Name:    filename,
+				Content: data,
+			})
+		}
 
-                jsonStr, err := processing.ToJSON(result)
-                if err != nil {
-                        errorResult := processing.ProcessResult{
-                                Success: false,
-                                Error:   fmt.Sprintf("Error converting to JSON: %v", err),
-                        }
-                        if debugPayload.Enabled {
-                                errorResult.Debug = &debugPayload
-                        }
-                        fallbackJSON, _ := processing.ToJSON(errorResult)
-                        return fallbackJSON
-                }
-                return jsonStr
-        }))
+		// Convert passwords
+		for i := 0; i < args[1].Length(); i++ {
+			passwords[i] = args[1].Index(i).String()
+		}
 
-        // GetSupportedCoinsJSON - JSON version of GetSupportedCoins
-        js.Global().Set("GetSupportedCoinsJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-                result := processing.ConvertSupportedCoinsToJSON()
+		// Get the key parameters
+		ecdsaPrivateKeyHex := args[3].String()
+		rootChainCodeHex := args[4].String()
+		eddsaPublicKeyHex := args[5].String()
+		eddsaPrivateKeyHex := args[6].String()
 
-                jsonStr, err := processing.ToJSON(result)
-                if err != nil {
-                        errorResult := processing.GetSupportedCoinsResult{
-                                Success: false,
-                                Error:   fmt.Sprintf("Error converting to JSON: %v", err),
-                        }
-                        fallbackJSON, _ := processing.ToJSON(errorResult)
-                        return fallbackJSON
-                }
-                return jsonStr
-        }))
+		// Process the DKLS files and return JSON
+		result, err := processing.ProcessDKLSFileContentJSON(fileInfos, passwords, ecdsaPrivateKeyHex, rootChainCodeHex, eddsaPublicKeyHex, eddsaPrivateKeyHex)
 
-        // SetDebugConfig - Configure debug settings from frontend
-        js.Global().Set("SetDebugConfig", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
-                if len(args) < 4 {
-                        return "SetDebugConfig requires 4 arguments: enabled (bool), level (string), categories (array), includeSensitive (bool)"
-                }
+		// Capture debug information and attach to result
+		debugPayload := processing.Debug().Flush()
+		if debugPayload.Enabled {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+					Debug:   &debugPayload,
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
+			}
+			result.Debug = &debugPayload
+		} else {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
+			}
+		}
 
-                enabled := args[0].Bool()
-                levelStr := args[1].String()
-                includeSensitive := args[3].Bool()
+		jsonStr, err := processing.ToJSON(result)
+		if err != nil {
+			errorResult := processing.ProcessResult{
+				Success: false,
+				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			if debugPayload.Enabled {
+				errorResult.Debug = &debugPayload
+			}
+			fallbackJSON, _ := processing.ToJSON(errorResult)
+			return fallbackJSON
+		}
+		return jsonStr
+	}))
 
-                // Convert level string to DebugLevel
-                var level processing.DebugLevel
-                switch levelStr {
-                case "DEBUG":
-                        level = processing.DEBUG
-                case "INFO":
-                        level = processing.INFO
-                case "WARN":
-                        level = processing.WARN
-                case "ERROR":
-                        level = processing.ERROR
-                default:
-                        level = processing.INFO
-                }
+	// GetSupportedCoinsJSON - JSON version of GetSupportedCoins
+	js.Global().Set("GetSupportedCoinsJSON", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		result := processing.ConvertSupportedCoinsToJSON()
 
-                // Convert categories array
-                var categories []string
-                if !args[2].IsNull() && args[2].Length() > 0 {
-                        categories = make([]string, args[2].Length())
-                        for i := 0; i < args[2].Length(); i++ {
-                                categories[i] = args[2].Index(i).String()
-                        }
-                }
+		jsonStr, err := processing.ToJSON(result)
+		if err != nil {
+			errorResult := processing.GetSupportedCoinsResult{
+				Success: false,
+				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			fallbackJSON, _ := processing.ToJSON(errorResult)
+			return fallbackJSON
+		}
+		return jsonStr
+	}))
 
-                config := processing.DebugConfig{
-                        Enabled:          enabled,
-                        Level:            level,
-                        Categories:       categories,
-                        IncludeSensitive: includeSensitive,
-                        Capacity:         1000,
-                }
+	// SetDebugConfig - Configure debug settings from frontend
+	js.Global().Set("SetDebugConfig", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) < 4 {
+			return "SetDebugConfig requires 4 arguments: enabled (bool), level (string), categories (array), includeSensitive (bool)"
+		}
 
-                processing.SetDebugConfig(config)
-                return "Debug config updated"
-        }))
+		enabled := args[0].Bool()
+		levelStr := args[1].String()
+		includeSensitive := args[3].Bool()
 
-        log.Println("WASM initialization complete, waiting for JS calls...")
-        <-c
+		// Convert level string to DebugLevel
+		var level processing.DebugLevel
+		switch levelStr {
+		case "DEBUG":
+			level = processing.DEBUG
+		case "INFO":
+			level = processing.INFO
+		case "WARN":
+			level = processing.WARN
+		case "ERROR":
+			level = processing.ERROR
+		default:
+			level = processing.INFO
+		}
+
+		// Convert categories array
+		var categories []string
+		if !args[2].IsNull() && args[2].Length() > 0 {
+			categories = make([]string, args[2].Length())
+			for i := 0; i < args[2].Length(); i++ {
+				categories[i] = args[2].Index(i).String()
+			}
+		}
+
+		config := processing.DebugConfig{
+			Enabled:          enabled,
+			Level:            level,
+			Categories:       categories,
+			IncludeSensitive: includeSensitive,
+			Capacity:         1000,
+		}
+
+		processing.SetDebugConfig(config)
+		return "Debug config updated"
+	}))
+
+	log.Println("WASM initialization complete, waiting for JS calls...")
+	<-c
 }
