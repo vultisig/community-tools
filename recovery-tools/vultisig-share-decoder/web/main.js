@@ -137,80 +137,7 @@ Promise.all([initMainWasm, initVsWasm, initVsSchnorrWasm])
         });
     });
 
-// Module selection utility - determines which WASM module to use based on algorithm/coin
-function getVsModule(algorithmOrCoin) {
-    debugLog(`Getting WASM module for: ${algorithmOrCoin}`);
-    
-    // Direct algorithm specification
-    if (algorithmOrCoin === 'eddsa' || algorithmOrCoin === 'schnorr') {
-        if (window.vsSchnorrWasmModule) {
-            debugLog("Using vsSchnorrWasmModule for EdDSA/Schnorr");
-            return window.vsSchnorrWasmModule;
-        } else {
-            debugLog("Warning: EdDSA/Schnorr module requested but not available");
-            return null;
-        }
-    }
-    
-    if (algorithmOrCoin === 'ecdsa') {
-        if (window.vsWasmModule) {
-            debugLog("Using vsWasmModule for ECDSA");
-            return window.vsWasmModule;
-        } else {
-            debugLog("Warning: ECDSA module requested but not available");
-            return null;
-        }
-    }
-    
-    // Coin-based detection (for EdDSA coins)
-    const eddsaCoins = ['solana', 'sui', 'ton'];
-    if (eddsaCoins.includes(algorithmOrCoin)) {
-        if (window.vsSchnorrWasmModule) {
-            debugLog(`Using vsSchnorrWasmModule for EdDSA coin: ${algorithmOrCoin}`);
-            return window.vsSchnorrWasmModule;
-        } else {
-            debugLog(`Warning: EdDSA coin ${algorithmOrCoin} requested but Schnorr module not available`);
-            return null;
-        }
-    }
-    
-    // Default to ECDSA module for unknown coins or general usage
-    if (window.vsWasmModule) {
-        debugLog(`Using vsWasmModule as default for: ${algorithmOrCoin}`);
-        return window.vsWasmModule;
-    } else {
-        debugLog("Warning: Default ECDSA module not available");
-        return null;
-    }
-}
 
-// Utility to detect algorithm from vault or keyshare data
-function detectAlgorithmFromVault(vaultInfos) {
-    if (!vaultInfos || vaultInfos.length === 0) {
-        return 'ecdsa'; // default
-    }
-    
-    // Prefer libType over publicKeyEddsa for more reliable algorithm detection
-    const hasEddsaLib = vaultInfos.some(v => v.libType === LibType.DKLS_EDDSA);
-    if (hasEddsaLib) {
-        debugLog("Detected EdDSA algorithm from vault libType");
-        return 'eddsa';
-    }
-    
-    // Fallback: Check if any vault has EdDSA public key
-    const hasEddsaKey = vaultInfos.some(v => v.publicKeyEddsa && v.publicKeyEddsa.length > 0);
-    if (hasEddsaKey) {
-        debugLog("Detected EdDSA algorithm from vault publicKeyEddsa (fallback)");
-        return 'eddsa';
-    }
-    
-    debugLog("Detected ECDSA algorithm from vault data");
-    return 'ecdsa';
-}
-
-// Make utility functions globally available
-window.getVsModule = getVsModule;
-window.detectAlgorithmFromVault = detectAlgorithmFromVault;
 
 function addFileInput() {
     const container = document.getElementById('fileInputs');
@@ -366,16 +293,32 @@ async function parseAndDecryptVault(fileData, password) {
 }
 
 async function processDKLSWithWASM(files, passwords, fileNames) {
-    debugLog("Starting DKLS processing with algorithm auto-detection...");
+    debugLog("Starting DKLS processing to extract both ECDSA and EdDSA keys...");
 
     if (files.length < 2) {
         throw new Error("DKLS requires at least 2 keyshare files.");
     }
 
-    // First pass: parse vault infos to detect algorithm
+    // Check that both WASM modules are available
+    if (!window.vsWasmModule || !window.vsSchnorrWasmModule) {
+        throw new Error("Both ECDSA and EdDSA WASM modules are required for DKLS processing. Please reload the page.");
+    }
+
+    const ecdsaModule = window.vsWasmModule;
+    const eddsaModule = window.vsSchnorrWasmModule;
+    
+    if (!ecdsaModule.Keyshare || !ecdsaModule.KeyExportSession) {
+        throw new Error("ECDSA WASM classes not properly initialized");
+    }
+    
+    if (!eddsaModule.Keyshare || !eddsaModule.KeyExportSession) {
+        throw new Error("EdDSA WASM classes not properly initialized");
+    }
+
+    // Parse vault infos
     const vaultInfos = [];
     for (let i = 0; i < files.length; i++) {
-        debugLog(`Pre-processing file ${i + 1} for algorithm detection: ${fileNames[i]}`);
+        debugLog(`Pre-processing file ${i + 1}: ${fileNames[i]}`);
         const password = passwords[i] || "";
 
         try {
@@ -413,51 +356,35 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
                 libType: vault.libType
             });
         } catch (error) {
-            debugLog(`Failed to parse file ${i + 1} for algorithm detection: ${error.message}`);
+            debugLog(`Failed to parse file ${i + 1}: ${error.message}`);
             throw new Error(`Failed to parse vault ${i + 1}: ${error.message}`);
         }
     }
 
-    // Detect algorithm and get appropriate WASM module
-    const algorithm = detectAlgorithmFromVault(vaultInfos);
-    const vsModule = getVsModule(algorithm);
-    
-    if (!vsModule) {
-        throw new Error(`${algorithm.toUpperCase()} WASM module not available. Please reload the page.`);
-    }
-
-    debugLog(`Using ${algorithm.toUpperCase()} processing with appropriate WASM module`);
-    const { KeyExportSession, Keyshare } = vsModule;
-
-    if (!Keyshare || !KeyExportSession) {
-        throw new Error(`${algorithm.toUpperCase()} WASM classes not properly initialized`);
-    }
-
-    try {
-        debugLog(`Processing ${files.length} DKLS files with ${algorithm.toUpperCase()}...`);
+    // Helper function to extract private key using a specific WASM module
+    async function extractPrivateKeyWithModule(module, moduleType) {
+        debugLog(`Starting ${moduleType} key extraction...`);
+        const { KeyExportSession, Keyshare } = module;
+        
         const keyshares = [];
         const keyIds = [];
         
-        // Second pass: extract keyshare data using the already parsed vault info
+        // Extract keyshare data and create WASM keyshares
         for (let i = 0; i < files.length; i++) {
-            debugLog(`Extracting keyshare data from file ${i + 1}: ${fileNames[i]}`);
+            debugLog(`Extracting keyshare data from file ${i + 1} for ${moduleType}: ${fileNames[i]}`);
             const password = passwords[i] || "";
 
             try {
-                // Parse and decrypt vault container for keyshare data
                 const keyshareData = await parseAndDecryptVault(files[i], password);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
 
-                // Create Keyshare from extracted keyshare data
-                debugLog(`Creating WASM Keyshare object for file ${i + 1}...`);
                 const keyshare = Keyshare.fromBytes(keyshareData);
-
                 if (!keyshare) {
-                    throw new Error(`Failed to create keyshare from file ${i + 1}`);
+                    throw new Error(`Failed to create ${moduleType} keyshare from file ${i + 1}`);
                 }
 
                 keyshares.push(keyshare);
-                debugLog(`Successfully created keyshare ${i + 1}`);
+                debugLog(`Successfully created ${moduleType} keyshare ${i + 1}`);
 
                 // Get the key ID for this keyshare
                 let keyId;
@@ -466,10 +393,9 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
                     if (!keyId) {
                         throw new Error(`keyId() returned null/undefined`);
                     }
-                    debugLog(`Raw keyId type: ${typeof keyId}, value: ${keyId}`);
                 } catch (keyIdError) {
                     debugLog(`Error getting keyId: ${keyIdError.message}`);
-                    throw new Error(`Failed to get key ID for keyshare ${i + 1}: ${keyIdError.message}`);
+                    throw new Error(`Failed to get key ID for ${moduleType} keyshare ${i + 1}: ${keyIdError.message}`);
                 }
 
                 // Convert keyId to string
@@ -483,153 +409,141 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
                 }
 
                 keyIds.push(keyIdStr);
-                debugLog(`Created keyshare ${i + 1} with ID: ${keyIdStr}`);
+                debugLog(`Created ${moduleType} keyshare ${i + 1} with ID: ${keyIdStr}`);
 
             } catch (error) {
-                debugLog(`Error processing file ${i + 1}: ${error.message}`);
-                throw new Error(`Failed to process file ${fileNames[i]}: ${error.message}`);
+                debugLog(`Error processing file ${i + 1} for ${moduleType}: ${error.message}`);
+                throw new Error(`Failed to process file ${fileNames[i]} for ${moduleType}: ${error.message}`);
             }
         }
 
         if (keyshares.length === 0) {
-            throw new Error("No valid keyshares were created");
+            throw new Error(`No valid ${moduleType} keyshares were created`);
         }
 
-        debugLog(`Successfully created ${keyshares.length} keyshares`);
+        debugLog(`Successfully created ${keyshares.length} ${moduleType} keyshares`);
         
-        // Verify all keyshares have the same key ID (they should be shares of the same key)
-        const firstKeyId = keyIds[0];
-        for (let i = 1; i < keyIds.length; i++) {
-            if (keyIds[i] !== firstKeyId) {
-                debugLog(`Key ID mismatch - Share 1: ${firstKeyId}, Share ${i + 1}: ${keyIds[i]}`);
-            }
-        }
-
-        debugLog("Creating KeyExportSession...");
-        debugLog(`Using key IDs: ${keyIds.join(', ')}`);
-
-        // Create the export session with the first keyshare and all party IDs as strings
-        // Use simple string party IDs instead of trying to use hex key IDs
         const partyIds = keyshares.map((_, index) => `party${index + 1}`);
-        debugLog(`Using party IDs: ${partyIds.join(', ')}`);
+        debugLog(`Using ${moduleType} party IDs: ${partyIds.join(', ')}`);
         
+        // Create session
         let session;
         try {
-            debugLog("Creating session with first keyshare and party IDs...");
+            debugLog(`Creating ${moduleType} session with first keyshare and party IDs...`);
             session = KeyExportSession.new(keyshares[0], partyIds);
             if (!session) {
-                throw new Error("KeyExportSession.new returned null/undefined");
+                throw new Error(`${moduleType} KeyExportSession.new returned null/undefined`);
             }
-            debugLog("Session created successfully");
+            debugLog(`${moduleType} session created successfully`);
         } catch (sessionError) {
-            debugLog(`Session creation failed: ${sessionError.message}`);
-            throw new Error(`Failed to create KeyExportSession: ${sessionError.message}`);
+            debugLog(`${moduleType} session creation failed: ${sessionError.message}`);
+            throw new Error(`Failed to create ${moduleType} KeyExportSession: ${sessionError.message}`);
         }
 
-        debugLog("Getting setup message...");
+        // Get setup message
+        debugLog(`Getting ${moduleType} setup message...`);
         let setupMessage;
         try {
             setupMessage = session.setup;
             if (!setupMessage) {
-                throw new Error("setup property returned null/undefined");
+                throw new Error(`${moduleType} setup property returned null/undefined`);
             }
-            debugLog(`Setup message obtained, length: ${setupMessage.length} bytes`);
+            debugLog(`${moduleType} setup message obtained, length: ${setupMessage.length} bytes`);
         } catch (setupError) {
-            debugLog(`Setup message retrieval failed: ${setupError.message}`);
-            throw new Error(`Failed to get setup message: ${setupError.message}`);
-        }
-        if (!setupMessage) {
-            throw new Error("Failed to get setup message");
+            debugLog(`${moduleType} setup message retrieval failed: ${setupError.message}`);
+            throw new Error(`Failed to get ${moduleType} setup message: ${setupError.message}`);
         }
 
-        debugLog(`Setup message length: ${setupMessage.length} bytes`);
-
-        // Process remaining keyshares to extract encrypted material
-        debugLog("Processing remaining keyshares...");
+        // Process remaining keyshares
+        debugLog(`Processing remaining ${moduleType} keyshares...`);
         for (let i = 1; i < keyshares.length; i++) {
-            debugLog(`Processing keyshare ${i + 1} with party ID: ${partyIds[i]}...`);
+            debugLog(`Processing ${moduleType} keyshare ${i + 1} with party ID: ${partyIds[i]}...`);
             
             try {
-                // Export the encrypted material from this keyshare using party ID
-                debugLog(`Calling exportShare with setup length: ${setupMessage.length}, party ID: "${partyIds[i]}", keyshare type: ${typeof keyshares[i]}`);
-                
                 let message;
                 try {
                     message = KeyExportSession.exportShare(setupMessage, partyIds[i], keyshares[i]);
-                    debugLog(`exportShare call completed for keyshare ${i + 1}`);
+                    debugLog(`${moduleType} exportShare call completed for keyshare ${i + 1}`);
                 } catch (exportError) {
-                    debugLog(`exportShare call failed: ${exportError.message}`);
-                    debugLog(`Error type: ${exportError.constructor.name}`);
-                    debugLog(`Error stack: ${exportError.stack}`);
+                    debugLog(`${moduleType} exportShare call failed: ${exportError.message}`);
                     throw exportError;
                 }
 
-                if (!message) {
-                    throw new Error(`exportShare returned null for keyshare ${i + 1}`);
-                }
-
-                if (!message.body) {
-                    throw new Error(`exportShare returned message without body for keyshare ${i + 1}`);
+                if (!message || !message.body) {
+                    throw new Error(`${moduleType} exportShare returned invalid message for keyshare ${i + 1}`);
                 }
 
                 const messageBody = message.body;
-                debugLog(`Keyshare ${i + 1} exported message, length: ${messageBody.length} bytes`);
+                debugLog(`${moduleType} keyshare ${i + 1} exported message, length: ${messageBody.length} bytes`);
 
-                // Input the encrypted message to the session
                 const isComplete = session.inputMessage(messageBody);
-                debugLog(`Message ${i + 1} processed, session complete: ${isComplete}`);
+                debugLog(`${moduleType} message ${i + 1} processed, session complete: ${isComplete}`);
 
             } catch (shareError) {
-                debugLog(`Error processing keyshare ${i + 1}: ${shareError.message}`);
-                throw new Error(`Failed to process keyshare ${i + 1}: ${shareError.message}`);
+                debugLog(`Error processing ${moduleType} keyshare ${i + 1}: ${shareError.message}`);
+                throw new Error(`Failed to process ${moduleType} keyshare ${i + 1}: ${shareError.message}`);
             }
         }
 
-        debugLog("Finishing session to extract private key...");
+        // Extract private key
+        debugLog(`Finishing ${moduleType} session to extract private key...`);
         let privateKeyBytes;
         try {
             privateKeyBytes = session.finish();
         } catch (finishError) {
-            debugLog(`Session finish failed: ${finishError.message}`);
-            throw new Error(`Failed to finish DKLS session: ${finishError.message}`);
+            debugLog(`${moduleType} session finish failed: ${finishError.message}`);
+            throw new Error(`Failed to finish ${moduleType} DKLS session: ${finishError.message}`);
         }
 
         if (!privateKeyBytes || privateKeyBytes.length === 0) {
-            throw new Error("Session finished but returned empty private key");
+            throw new Error(`${moduleType} session finished but returned empty private key`);
         }
 
         const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Extracted private key: ${privateKeyHex}... (${privateKeyBytes.length} bytes)`);
-
-        // 🔍 DEBUG: Analyze the session.finish() result
-        if (window.keyAnalysisDebug) {
-            window.keyAnalysisDebug.analyzeSessionFinishResult(privateKeyBytes);
-        }
-
-        debugLog("Getting public key...");
+        debugLog(`Extracted ${moduleType} private key (${privateKeyBytes.length} bytes)`);
+        
+        // Also get public key and root chain code for reference
         const publicKeyBytes = keyshares[0].publicKey();
         const publicKeyHex = Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        const rootChainCodeBytes = keyshares[0].rootChainCode();
+        const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        return {
+            privateKeyHex,
+            publicKeyHex,
+            rootChainCodeHex
+        };
+    }
 
-        // 🔍 DEBUG: Analyze the keyshare public key
-        if (window.keyAnalysisDebug) {
-            window.keyAnalysisDebug.analyzeKeysharePublicKey(keyshares[0], 0);
-        }
-
+    try {
+        debugLog(`Processing ${files.length} DKLS files to extract both ECDSA and EdDSA keys...`);
+        
+        // Extract both ECDSA and EdDSA keys from the same keyshares
+        debugLog("=== EXTRACTING ECDSA KEY ===");
+        const ecdsaResult = await extractPrivateKeyWithModule(ecdsaModule, "ECDSA");
+        
+        debugLog("=== EXTRACTING EDDSA KEY ===");
+        const eddsaResult = await extractPrivateKeyWithModule(eddsaModule, "EdDSA");
+        
+        debugLog("Successfully extracted both ECDSA and EdDSA keys from DKLS keyshares");
+        
+        // Use the ECDSA result for public key and chain code (they should be the same)
+        const privateKeyHex = ecdsaResult.privateKeyHex;
+        const eddsaPrivateKeyHex = eddsaResult.privateKeyHex;
+        const publicKeyHex = ecdsaResult.publicKeyHex;
+        const rootChainCodeHex = ecdsaResult.rootChainCodeHex;
+        
         debugLog("Getting EdDSA public key from vault...");
         const eddsaPublicKey = vaultInfos[0] ? vaultInfos.find(v => v.publicKeyEddsa)?.publicKeyEddsa || '' : '';
         if (eddsaPublicKey) {
-            debugLog(`EdDSA Public Key: ${eddsaPublicKey}`);
+            debugLog(`EdDSA Public Key from vault: ${eddsaPublicKey}`);
         } else {
             debugLog("No EdDSA public key found in vault");
         }
 
-        debugLog("Getting root chain code...");
-        const rootChainCodeBytes = keyshares[0].rootChainCode();
-        const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        // debugLog(`Root Chain Code: ${rootChainCodeHex}`); // REMOVED: Sensitive data logging
-
-        // Call the new JSON WASM function to derive keys for all supported coins
-        debugLog("Calling WASM DeriveAndShowKeysJSON function...");
+        // Call the new JSON WASM function to derive keys for all supported coins using both keys
+        debugLog("Calling WASM DeriveAndShowKeysJSON function with both ECDSA and EdDSA keys...");
         let derivedKeysOutput = "";
         let jsonKeysData = null;
         
@@ -638,8 +552,9 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
                 throw new Error("DeriveAndShowKeysJSON function not available. Please reload the page.");
             }
             
-            debugLog("Using JSON version of DeriveAndShowKeys");
-            const jsonResult = window.DeriveAndShowKeysJSON(privateKeyHex, rootChainCodeHex, "", eddsaPublicKey);
+            debugLog("Using JSON version of DeriveAndShowKeys with both key types");
+            // Pass both ECDSA and EdDSA private keys to the derivation function
+            const jsonResult = window.DeriveAndShowKeysJSON(privateKeyHex, rootChainCodeHex, eddsaPrivateKeyHex, eddsaPublicKey);
             debugLog(`JSON result: ${jsonResult}`);
             
             try {
@@ -661,7 +576,7 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         // Collect all party IDs from vault info
         const allPartyIds = vaultInfos.map(info => info.localPartyId).sort();
         
-        // Create results in GG20 format
+        // Create results showing both extracted keys
         const results = `
 ${vaultInfos.map((vaultInfo, i) => {
             return `Backup name: ${vaultInfo.filename}
@@ -672,10 +587,12 @@ All Shares: [${allPartyIds.join(' ')}]`;
 Public Key(ECDSA): ${publicKeyHex}
 ${eddsaPublicKey ? `Public Key(EdDSA): ${eddsaPublicKey}` : ''}
 
+Both ECDSA and EdDSA private keys extracted from DKLS keyshares.
+
 ${derivedKeysOutput}
         `.trim();
 
-        debugLog("DKLS processing completed successfully");
+        debugLog("DKLS processing completed successfully with both key types extracted");
         debugLog("Results:\n")
         debugLog(results)
         displayResults(results);
@@ -689,16 +606,32 @@ ${derivedKeysOutput}
 
 // New function to process DKLS files and return structured JSON (same format as GG20)
 async function processDKLSWithJSON(files, passwords, fileNames) {
-    debugLog("Starting DKLS processing with structured JSON output and algorithm auto-detection...");
+    debugLog("Starting DKLS processing with structured JSON output to extract both ECDSA and EdDSA keys...");
 
     if (files.length < 2) {
         throw new Error("DKLS requires at least 2 keyshare files.");
     }
 
-    // First pass: parse vault infos to detect algorithm
+    // Check that both WASM modules are available
+    if (!window.vsWasmModule || !window.vsSchnorrWasmModule) {
+        throw new Error("Both ECDSA and EdDSA WASM modules are required for DKLS processing. Please reload the page.");
+    }
+
+    const ecdsaModule = window.vsWasmModule;
+    const eddsaModule = window.vsSchnorrWasmModule;
+    
+    if (!ecdsaModule.Keyshare || !ecdsaModule.KeyExportSession) {
+        throw new Error("ECDSA WASM classes not properly initialized");
+    }
+    
+    if (!eddsaModule.Keyshare || !eddsaModule.KeyExportSession) {
+        throw new Error("EdDSA WASM classes not properly initialized");
+    }
+
+    // Parse vault infos
     const vaultInfos = [];
     for (let i = 0; i < files.length; i++) {
-        debugLog(`Pre-processing file ${i + 1} for algorithm detection: ${fileNames[i]}`);
+        debugLog(`Pre-processing file ${i + 1}: ${fileNames[i]}`);
         const password = passwords[i] || "";
 
         try {
@@ -736,51 +669,35 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                 libType: vault.libType
             });
         } catch (error) {
-            debugLog(`Failed to parse file ${i + 1} for algorithm detection: ${error.message}`);
+            debugLog(`Failed to parse file ${i + 1}: ${error.message}`);
             throw new Error(`Failed to parse vault ${i + 1}: ${error.message}`);
         }
     }
 
-    // Detect algorithm and get appropriate WASM module
-    const algorithm = detectAlgorithmFromVault(vaultInfos);
-    const vsModule = getVsModule(algorithm);
-    
-    if (!vsModule) {
-        throw new Error(`${algorithm.toUpperCase()} WASM module not available. Please reload the page.`);
-    }
-
-    debugLog(`Using ${algorithm.toUpperCase()} processing with appropriate WASM module`);
-    const { KeyExportSession, Keyshare } = vsModule;
-
-    if (!Keyshare || !KeyExportSession) {
-        throw new Error(`${algorithm.toUpperCase()} WASM classes not properly initialized`);
-    }
-
-    try {
-        debugLog(`Processing ${files.length} DKLS files with ${algorithm.toUpperCase()}...`);
+    // Helper function to extract private key using a specific WASM module (reused from processDKLSWithWASM)
+    async function extractPrivateKeyWithModule(module, moduleType) {
+        debugLog(`Starting ${moduleType} key extraction for JSON processing...`);
+        const { KeyExportSession, Keyshare } = module;
+        
         const keyshares = [];
         const keyIds = [];
-
-        // Second pass: extract keyshare data using the already parsed vault info
+        
+        // Extract keyshare data and create WASM keyshares
         for (let i = 0; i < files.length; i++) {
-            debugLog(`Extracting keyshare data from file ${i + 1}: ${fileNames[i]}`);
+            debugLog(`Extracting keyshare data from file ${i + 1} for ${moduleType}: ${fileNames[i]}`);
             const password = passwords[i] || "";
 
             try {
-                // Parse and decrypt vault container for keyshare data
                 const keyshareData = await parseAndDecryptVault(files[i], password);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
 
-                // Create Keyshare from extracted keyshare data
-                debugLog(`Creating WASM Keyshare object for file ${i + 1}...`);
                 const keyshare = Keyshare.fromBytes(keyshareData);
-
                 if (!keyshare) {
-                    throw new Error(`Failed to create keyshare from file ${i + 1}`);
+                    throw new Error(`Failed to create ${moduleType} keyshare from file ${i + 1}`);
                 }
 
                 keyshares.push(keyshare);
-                debugLog(`Successfully created keyshare ${i + 1}`);
+                debugLog(`Successfully created ${moduleType} keyshare ${i + 1}`);
 
                 // Get the key ID for this keyshare
                 let keyId;
@@ -789,10 +706,9 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                     if (!keyId) {
                         throw new Error(`keyId() returned null/undefined`);
                     }
-                    debugLog(`Raw keyId type: ${typeof keyId}, value: ${keyId}`);
                 } catch (keyIdError) {
                     debugLog(`Error getting keyId: ${keyIdError.message}`);
-                    throw new Error(`Failed to get key ID for keyshare ${i + 1}: ${keyIdError.message}`);
+                    throw new Error(`Failed to get key ID for ${moduleType} keyshare ${i + 1}: ${keyIdError.message}`);
                 }
 
                 // Convert keyId to string
@@ -806,166 +722,141 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                 }
 
                 keyIds.push(keyIdStr);
-                debugLog(`Created keyshare ${i + 1} with ID: ${keyIdStr}`);
+                debugLog(`Created ${moduleType} keyshare ${i + 1} with ID: ${keyIdStr}`);
 
             } catch (error) {
-                debugLog(`Error processing file ${i + 1}: ${error.message}`);
-                throw new Error(`Failed to process file ${fileNames[i]}: ${error.message}`);
+                debugLog(`Error processing file ${i + 1} for ${moduleType}: ${error.message}`);
+                throw new Error(`Failed to process file ${fileNames[i]} for ${moduleType}: ${error.message}`);
             }
         }
 
         if (keyshares.length === 0) {
-            throw new Error("No valid keyshares were created");
+            throw new Error(`No valid ${moduleType} keyshares were created`);
         }
 
-        debugLog(`Successfully created ${keyshares.length} keyshares`);
+        debugLog(`Successfully created ${keyshares.length} ${moduleType} keyshares`);
         
-        // Verify all keyshares have the same key ID (they should be shares of the same key)
-        const firstKeyId = keyIds[0];
-        for (let i = 1; i < keyIds.length; i++) {
-            if (keyIds[i] !== firstKeyId) {
-                debugLog(`Key ID mismatch - Share 1: ${firstKeyId}, Share ${i + 1}: ${keyIds[i]}`);
-            }
-        }
-
-        debugLog("Creating KeyExportSession...");
-        debugLog(`Using key IDs: ${keyIds.join(', ')}`);
-
-        // Create the export session with the first keyshare and all party IDs as strings
         const partyIds = keyshares.map((_, index) => `party${index + 1}`);
-        debugLog(`Using party IDs: ${partyIds.join(', ')}`);
+        debugLog(`Using ${moduleType} party IDs: ${partyIds.join(', ')}`);
         
+        // Create session
         let session;
         try {
-            debugLog("Creating session with first keyshare and party IDs...");
+            debugLog(`Creating ${moduleType} session with first keyshare and party IDs...`);
             session = KeyExportSession.new(keyshares[0], partyIds);
             if (!session) {
-                throw new Error("KeyExportSession.new returned null/undefined");
+                throw new Error(`${moduleType} KeyExportSession.new returned null/undefined`);
             }
-            debugLog("Session created successfully");
+            debugLog(`${moduleType} session created successfully`);
         } catch (sessionError) {
-            debugLog(`Session creation failed: ${sessionError.message}`);
-            throw new Error(`Failed to create KeyExportSession: ${sessionError.message}`);
+            debugLog(`${moduleType} session creation failed: ${sessionError.message}`);
+            throw new Error(`Failed to create ${moduleType} KeyExportSession: ${sessionError.message}`);
         }
 
-        debugLog("Getting setup message...");
+        // Get setup message
+        debugLog(`Getting ${moduleType} setup message...`);
         let setupMessage;
         try {
             setupMessage = session.setup;
             if (!setupMessage) {
-                throw new Error("setup property returned null/undefined");
+                throw new Error(`${moduleType} setup property returned null/undefined`);
             }
-            debugLog(`Setup message obtained, length: ${setupMessage.length} bytes`);
+            debugLog(`${moduleType} setup message obtained, length: ${setupMessage.length} bytes`);
         } catch (setupError) {
-            debugLog(`Setup message retrieval failed: ${setupError.message}`);
-            throw new Error(`Failed to get setup message: ${setupError.message}`);
-        }
-        if (!setupMessage) {
-            throw new Error("Failed to get setup message");
+            debugLog(`${moduleType} setup message retrieval failed: ${setupError.message}`);
+            throw new Error(`Failed to get ${moduleType} setup message: ${setupError.message}`);
         }
 
-        debugLog(`Setup message length: ${setupMessage.length} bytes`);
-
-        // Process remaining keyshares to extract encrypted material
-        debugLog("Processing remaining keyshares...");
+        // Process remaining keyshares
+        debugLog(`Processing remaining ${moduleType} keyshares...`);
         for (let i = 1; i < keyshares.length; i++) {
-            debugLog(`Processing keyshare ${i + 1} with party ID: ${partyIds[i]}...`);
+            debugLog(`Processing ${moduleType} keyshare ${i + 1} with party ID: ${partyIds[i]}...`);
             
             try {
-                // Export the encrypted material from this keyshare using party ID
-                debugLog(`Calling exportShare with setup length: ${setupMessage.length}, party ID: "${partyIds[i]}", keyshare type: ${typeof keyshares[i]}`);
-                
                 let message;
                 try {
                     message = KeyExportSession.exportShare(setupMessage, partyIds[i], keyshares[i]);
-                    debugLog(`exportShare call completed for keyshare ${i + 1}`);
+                    debugLog(`${moduleType} exportShare call completed for keyshare ${i + 1}`);
                 } catch (exportError) {
-                    debugLog(`exportShare call failed: ${exportError.message}`);
-                    debugLog(`Error type: ${exportError.constructor.name}`);
-                    debugLog(`Error stack: ${exportError.stack}`);
+                    debugLog(`${moduleType} exportShare call failed: ${exportError.message}`);
                     throw exportError;
                 }
 
-                if (!message) {
-                    throw new Error(`exportShare returned null for keyshare ${i + 1}`);
-                }
-
-                if (!message.body) {
-                    throw new Error(`exportShare returned message without body for keyshare ${i + 1}`);
+                if (!message || !message.body) {
+                    throw new Error(`${moduleType} exportShare returned invalid message for keyshare ${i + 1}`);
                 }
 
                 const messageBody = message.body;
-                debugLog(`Keyshare ${i + 1} exported message, length: ${messageBody.length} bytes`);
+                debugLog(`${moduleType} keyshare ${i + 1} exported message, length: ${messageBody.length} bytes`);
 
-                // Input the encrypted message to the session
                 const isComplete = session.inputMessage(messageBody);
-                debugLog(`Message ${i + 1} processed, session complete: ${isComplete}`);
+                debugLog(`${moduleType} message ${i + 1} processed, session complete: ${isComplete}`);
 
             } catch (shareError) {
-                debugLog(`Error processing keyshare ${i + 1}: ${shareError.message}`);
-                throw new Error(`Failed to process keyshare ${i + 1}: ${shareError.message}`);
+                debugLog(`Error processing ${moduleType} keyshare ${i + 1}: ${shareError.message}`);
+                throw new Error(`Failed to process ${moduleType} keyshare ${i + 1}: ${shareError.message}`);
             }
         }
 
-        debugLog("Finishing session to extract private key...");
+        // Extract private key
+        debugLog(`Finishing ${moduleType} session to extract private key...`);
         let privateKeyBytes;
         try {
             privateKeyBytes = session.finish();
         } catch (finishError) {
-            debugLog(`Session finish failed: ${finishError.message}`);
-            throw new Error(`Failed to finish DKLS session: ${finishError.message}`);
+            debugLog(`${moduleType} session finish failed: ${finishError.message}`);
+            throw new Error(`Failed to finish ${moduleType} DKLS session: ${finishError.message}`);
         }
 
         if (!privateKeyBytes || privateKeyBytes.length === 0) {
-            throw new Error("Session finished but returned empty private key");
+            throw new Error(`${moduleType} session finished but returned empty private key`);
         }
 
-        const extractedKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Extracted private key: ${extractedKeyHex}... (${privateKeyBytes.length} bytes)`);
-
-        // 🔍 DEBUG: Analyze the session.finish() result
-        if (window.keyAnalysisDebug) {
-            window.keyAnalysisDebug.analyzeSessionFinishResult(privateKeyBytes);
-        }
-
-        debugLog("Getting public key...");
+        const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        debugLog(`Extracted ${moduleType} private key (${privateKeyBytes.length} bytes)`);
+        
+        // Also get public key and root chain code for reference
         const publicKeyBytes = keyshares[0].publicKey();
         const publicKeyHex = Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        const rootChainCodeBytes = keyshares[0].rootChainCode();
+        const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        return {
+            privateKeyHex,
+            publicKeyHex,
+            rootChainCodeHex
+        };
+    }
 
-        // 🔍 DEBUG: Analyze the keyshare public key
-        if (window.keyAnalysisDebug) {
-            window.keyAnalysisDebug.analyzeKeysharePublicKey(keyshares[0], 0);
-        }
-
+    try {
+        debugLog(`Processing ${files.length} DKLS files to extract both ECDSA and EdDSA keys for JSON processing...`);
+        
+        // Extract both ECDSA and EdDSA keys from the same keyshares
+        debugLog("=== EXTRACTING ECDSA KEY ===");
+        const ecdsaResult = await extractPrivateKeyWithModule(ecdsaModule, "ECDSA");
+        
+        debugLog("=== EXTRACTING EDDSA KEY ===");
+        const eddsaResult = await extractPrivateKeyWithModule(eddsaModule, "EdDSA");
+        
+        debugLog("Successfully extracted both ECDSA and EdDSA keys from DKLS keyshares");
+        
+        // Use extracted keys
+        const privateKeyHex = ecdsaResult.privateKeyHex;
+        const eddsaPrivateKeyHex = eddsaResult.privateKeyHex;
+        const publicKeyHex = ecdsaResult.publicKeyHex;
+        const rootChainCodeHex = ecdsaResult.rootChainCodeHex;
+        
         debugLog("Getting EdDSA public key from vault...");
         const eddsaPublicKey = vaultInfos[0] ? vaultInfos.find(v => v.publicKeyEddsa)?.publicKeyEddsa || '' : '';
         if (eddsaPublicKey) {
-            debugLog(`EdDSA Public Key: ${eddsaPublicKey}`);
+            debugLog(`EdDSA Public Key from vault: ${eddsaPublicKey}`);
         } else {
             debugLog("No EdDSA public key found in vault");
         }
 
-        debugLog("Getting root chain code...");
-        const rootChainCodeBytes = keyshares[0].rootChainCode();
-        const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        // debugLog(`Root Chain Code: ${rootChainCodeHex}`); // REMOVED: Sensitive data logging
-
-        // Properly assign private keys based on algorithm type
-        let privateKeyHex = '';
-        let eddsaPrivateKeyHex = '';
-        
-        if (algorithm === 'eddsa') {
-            // For EdDSA algorithms, the session.finish() returns the EdDSA private key
-            eddsaPrivateKeyHex = extractedKeyHex;
-            debugLog(`EdDSA private key extracted using vs_schnorr_wasm module: ${eddsaPrivateKeyHex.substring(0, 8)}...`);
-        } else {
-            // For ECDSA algorithms, the session.finish() returns the ECDSA private key
-            privateKeyHex = extractedKeyHex;
-            debugLog(`ECDSA private key extracted using vs_wasm module: ${privateKeyHex.substring(0, 8)}...`);
-        }
-
-        // Now call the new ProcessDKLSFileContentJSON function with extracted keys
-        debugLog("Calling ProcessDKLSFileContentJSON function...");
+        // Now call the new ProcessDKLSFileContentJSON function with both extracted keys
+        debugLog("Calling ProcessDKLSFileContentJSON function with both ECDSA and EdDSA keys...");
         
         // Check if the new JSON function is available
         if (!window.ProcessDKLSFileContentJSON) {

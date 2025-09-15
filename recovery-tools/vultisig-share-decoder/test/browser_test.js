@@ -265,64 +265,69 @@ async function testEnhancedConfigRegistry() {
     }
 }
 
-// Test 5: EdDSA WASM Module and Algorithm Detection
-async function testEdDSAWasmSupport() {
-    console.log("\n🔷 Test 5: EdDSA WASM Module and Algorithm Detection");
-    console.log("Testing vs_schnorr_wasm module availability and algorithm detection...");
+// Test 5: DKLS Dual WASM Module Architecture
+async function testDKLSDualModuleSupport() {
+    console.log("\n🔷 Test 5: DKLS Dual WASM Module Architecture");
+    console.log("Testing both ECDSA and EdDSA WASM modules for DKLS processing...");
     
     try {
-        // Check if vs_schnorr_wasm module is loaded
+        // Check if both WASM modules are loaded
+        if (!window.vsWasmModule) {
+            throw new Error("vsWasmModule not available - ECDSA support missing");
+        }
         if (!window.vsSchnorrWasmModule) {
             throw new Error("vsSchnorrWasmModule not available - EdDSA support missing");
         }
         
-        console.log("✅ vsSchnorrWasmModule is available");
+        console.log("✅ Both vsWasmModule and vsSchnorrWasmModule are available");
+        
+        // Check required ECDSA classes
+        const ecdsaClasses = ['Keyshare', 'KeyExportSession', 'Message'];
+        for (const className of ecdsaClasses) {
+            if (!window.vsWasmModule[className]) {
+                throw new Error(`ECDSA class ${className} not available in vsWasmModule`);
+            }
+        }
+        
+        console.log(`✅ All ECDSA classes available: ${ecdsaClasses.join(', ')}`);
         
         // Check required EdDSA classes
-        const requiredClasses = ['Keyshare', 'KeyExportSession', 'Message', 'SignSession', 'KeygenSession'];
-        for (const className of requiredClasses) {
+        const eddsaClasses = ['Keyshare', 'KeyExportSession', 'Message', 'SignSession', 'KeygenSession'];
+        for (const className of eddsaClasses) {
             if (!window.vsSchnorrWasmModule[className]) {
                 throw new Error(`EdDSA class ${className} not available in vsSchnorrWasmModule`);
             }
         }
         
-        console.log(`✅ All EdDSA classes available: ${requiredClasses.join(', ')}`);
+        console.log(`✅ All EdDSA classes available: ${eddsaClasses.join(', ')}`);
         
-        // Test module selection utility
-        if (typeof window.getVsModule !== 'function') {
-            throw new Error("getVsModule utility function not available");
+        // Verify algorithm detection functions were removed (new architecture)
+        if (typeof window.getVsModule === 'function') {
+            throw new Error("getVsModule function should have been removed (algorithm detection no longer used)");
         }
         
-        // Test algorithm-based selection
-        const eddsaModule = window.getVsModule('eddsa');
-        if (eddsaModule !== window.vsSchnorrWasmModule) {
-            throw new Error("getVsModule('eddsa') should return vsSchnorrWasmModule");
+        if (typeof window.detectAlgorithmFromVault === 'function') {
+            throw new Error("detectAlgorithmFromVault function should have been removed (algorithm detection no longer used)");
         }
         
-        const ecdsaModule = window.getVsModule('ecdsa');
-        if (ecdsaModule !== window.vsWasmModule) {
-            throw new Error("getVsModule('ecdsa') should return vsWasmModule");
+        console.log("✅ Algorithm detection functions properly removed");
+        
+        // Test that both modules can create keyshares (simulated)
+        const testData = new Uint8Array([1, 2, 3, 4]); // Dummy data for testing
+        
+        // We can't test actual keyshare creation without valid DKLS data,
+        // but we can verify the classes exist and are constructors
+        if (typeof window.vsWasmModule.Keyshare.fromBytes !== 'function') {
+            throw new Error("ECDSA Keyshare.fromBytes not available");
         }
         
-        console.log("✅ Algorithm-based module selection working correctly");
-        
-        // Test coin-based selection for EdDSA coins
-        const eddsaCoins = ['solana', 'sui', 'ton'];
-        for (const coin of eddsaCoins) {
-            const module = window.getVsModule(coin);
-            if (module !== window.vsSchnorrWasmModule) {
-                throw new Error(`getVsModule('${coin}') should return vsSchnorrWasmModule for EdDSA coin`);
-            }
+        if (typeof window.vsSchnorrWasmModule.Keyshare.fromBytes !== 'function') {
+            throw new Error("EdDSA Keyshare.fromBytes not available");
         }
         
-        console.log("✅ Coin-based EdDSA module selection working correctly");
+        console.log("✅ Both ECDSA and EdDSA Keyshare.fromBytes methods available");
         
-        // Test algorithm detection utility
-        if (typeof window.detectAlgorithmFromVault !== 'function') {
-            throw new Error("detectAlgorithmFromVault utility function not available");
-        }
-        
-        console.log("✅ EdDSA support fully integrated and functional!");
+        console.log("✅ DKLS dual module architecture verified!");
         
         return { success: true };
         
@@ -342,7 +347,7 @@ async function runAllTests() {
         test2: await testECDSAKeyDerivation(),
         test3: await testEdDSAKeyDerivation(),
         test4: await testEnhancedConfigRegistry(),
-        test5: await testEdDSAWasmSupport()
+        test5: await testDKLSDualModuleSupport()
     };
     
     console.log("\n📊 Test Results Summary:");

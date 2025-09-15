@@ -325,5 +325,4 @@ function parseKeyShare(bytes) {
 export const LibType = {
     GG20: 0,
     DKLS: 1,
-    DKLS_EDDSA: 2,
 };
