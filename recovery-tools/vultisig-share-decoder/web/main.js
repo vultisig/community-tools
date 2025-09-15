@@ -131,17 +131,7 @@ function updateDebugConfig() {
 
 // Initialize debug configuration on page load
 function initializeDebugConfig() {
-    // Initially disable all config elements until checkbox is checked
-    const configElements = [
-        document.getElementById('debugLevel'), 
-        document.getElementById('debugCategories'), 
-        document.getElementById('includeSensitive')
-    ];
-    configElements.forEach(element => {
-        if (element) element.disabled = true;
-    });
-    
-    // Set initial state
+    // Set initial state based on checkbox (don't force disable)
     updateDebugConfig();
 
     // Add change listeners for multi-select categories
