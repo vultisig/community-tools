@@ -292,6 +292,83 @@ async function parseAndDecryptVault(fileData, password) {
     }
 }
 
+// Function to sort keyshares by matching their public keys to vault ECDSA/EdDSA public keys
+function sortKeyshares(vault) {
+    debugLog("Starting keyshare sorting process...");
+    
+    if (!vault) {
+        debugLog("Error: vault is null or undefined");
+        return { ecdsaKeyshare: null, eddsaKeyshare: null };
+    }
+    
+    if (!vault.keyShares || !Array.isArray(vault.keyShares)) {
+        debugLog("Error: vault.keyShares is not an array or is undefined");
+        return { ecdsaKeyshare: null, eddsaKeyshare: null };
+    }
+    
+    debugLog(`Found ${vault.keyShares.length} keyshares in vault`);
+    debugLog(`Vault ECDSA public key: ${vault.publicKeyEcdsa || 'not provided'}`);
+    debugLog(`Vault EdDSA public key: ${vault.publicKeyEddsa || 'not provided'}`);
+    
+    let ecdsaKeyshare = null;
+    let eddsaKeyshare = null;
+    
+    // Iterate through all keyshares and match them with vault public keys
+    for (let i = 0; i < vault.keyShares.length; i++) {
+        const keyshare = vault.keyShares[i];
+        debugLog(`Processing keyshare ${i + 1}:`);
+        
+        if (!keyshare.publicKey) {
+            debugLog(`  Keyshare ${i + 1}: No public key found, skipping`);
+            continue;
+        }
+        
+        debugLog(`  Keyshare ${i + 1} public key: ${keyshare.publicKey}`);
+        
+        // Match ECDSA keyshare
+        if (vault.publicKeyEcdsa && keyshare.publicKey === vault.publicKeyEcdsa) {
+            ecdsaKeyshare = keyshare;
+            debugLog(`  ✓ Keyshare ${i + 1} matched to ECDSA algorithm`);
+        }
+        
+        // Match EdDSA keyshare
+        if (vault.publicKeyEddsa && keyshare.publicKey === vault.publicKeyEddsa) {
+            eddsaKeyshare = keyshare;
+            debugLog(`  ✓ Keyshare ${i + 1} matched to EdDSA algorithm`);
+        }
+        
+        // If keyshare doesn't match either, log it
+        if (vault.publicKeyEcdsa && vault.publicKeyEddsa && 
+            keyshare.publicKey !== vault.publicKeyEcdsa && 
+            keyshare.publicKey !== vault.publicKeyEddsa) {
+            debugLog(`  - Keyshare ${i + 1} does not match any vault public keys`);
+        }
+    }
+    
+    // Log final results
+    debugLog(`Keyshare sorting complete:`);
+    debugLog(`  ECDSA keyshare: ${ecdsaKeyshare ? 'found' : 'not found'}`);
+    debugLog(`  EdDSA keyshare: ${eddsaKeyshare ? 'found' : 'not found'}`);
+    
+    // Warn if we expected to find keyshares but didn't
+    if (vault.publicKeyEcdsa && !ecdsaKeyshare) {
+        debugLog(`Warning: Vault has ECDSA public key but no matching keyshare was found`);
+    }
+    if (vault.publicKeyEddsa && !eddsaKeyshare) {
+        debugLog(`Warning: Vault has EdDSA public key but no matching keyshare was found`);
+    }
+    
+    // Provide helpful information if no keyshares were matched
+    if (!ecdsaKeyshare && !eddsaKeyshare) {
+        debugLog(`No keyshares matched to either algorithm. This could indicate:`);
+        debugLog(`  - Vault public keys don't match any keyshare public keys`);
+        debugLog(`  - Vault doesn't contain the expected public key fields`);
+        debugLog(`  - Keyshares don't contain the expected public key format`);
+    }
+    
+    return { ecdsaKeyshare, eddsaKeyshare };
+}
+
 // New function to process DKLS files and return structured JSON (same format as GG20)
 async function processDKLSWithJSON(files, passwords, fileNames) {
     debugLog("Starting DKLS processing with structured JSON output to extract both ECDSA and EdDSA keys...");
