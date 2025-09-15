@@ -265,6 +265,73 @@ async function testEnhancedConfigRegistry() {
     }
 }
 
+// Test 5: EdDSA WASM Module and Algorithm Detection
+async function testEdDSAWasmSupport() {
+    console.log("\n🔷 Test 5: EdDSA WASM Module and Algorithm Detection");
+    console.log("Testing vs_schnorr_wasm module availability and algorithm detection...");
+    
+    try {
+        // Check if vs_schnorr_wasm module is loaded
+        if (!window.vsSchnorrWasmModule) {
+            throw new Error("vsSchnorrWasmModule not available - EdDSA support missing");
+        }
+        
+        console.log("✅ vsSchnorrWasmModule is available");
+        
+        // Check required EdDSA classes
+        const requiredClasses = ['Keyshare', 'KeyExportSession', 'Message', 'SignSession', 'KeygenSession'];
+        for (const className of requiredClasses) {
+            if (!window.vsSchnorrWasmModule[className]) {
+                throw new Error(`EdDSA class ${className} not available in vsSchnorrWasmModule`);
+            }
+        }
+        
+        console.log(`✅ All EdDSA classes available: ${requiredClasses.join(', ')}`);
+        
+        // Test module selection utility
+        if (typeof window.getVsModule !== 'function') {
+            throw new Error("getVsModule utility function not available");
+        }
+        
+        // Test algorithm-based selection
+        const eddsaModule = window.getVsModule('eddsa');
+        if (eddsaModule !== window.vsSchnorrWasmModule) {
+            throw new Error("getVsModule('eddsa') should return vsSchnorrWasmModule");
+        }
+        
+        const ecdsaModule = window.getVsModule('ecdsa');
+        if (ecdsaModule !== window.vsWasmModule) {
+            throw new Error("getVsModule('ecdsa') should return vsWasmModule");
+        }
+        
+        console.log("✅ Algorithm-based module selection working correctly");
+        
+        // Test coin-based selection for EdDSA coins
+        const eddsaCoins = ['solana', 'sui', 'ton'];
+        for (const coin of eddsaCoins) {
+            const module = window.getVsModule(coin);
+            if (module !== window.vsSchnorrWasmModule) {
+                throw new Error(`getVsModule('${coin}') should return vsSchnorrWasmModule for EdDSA coin`);
+            }
+        }
+        
+        console.log("✅ Coin-based EdDSA module selection working correctly");
+        
+        // Test algorithm detection utility
+        if (typeof window.detectAlgorithmFromVault !== 'function') {
+            throw new Error("detectAlgorithmFromVault utility function not available");
+        }
+        
+        console.log("✅ EdDSA support fully integrated and functional!");
+        
+        return { success: true };
+        
+    } catch (error) {
+        console.error("❌ Test 5 failed:", error.message);
+        return { success: false, error: error.message };
+    }
+}
+
 // Main test runner
 async function runAllTests() {
     console.log("🧪 Enhanced Configuration System - Comprehensive Test Suite");
@@ -274,14 +341,15 @@ async function runAllTests() {
         test1: await testGetSupportedCoins(),
         test2: await testECDSAKeyDerivation(),
         test3: await testEdDSAKeyDerivation(),
-        test4: await testEnhancedConfigRegistry()
+        test4: await testEnhancedConfigRegistry(),
+        test5: await testEdDSAWasmSupport()
     };
     
     console.log("\n📊 Test Results Summary:");
     console.log("=" * 40);
     
     let passedTests = 0;
-    const totalTests = 4;
+    const totalTests = 5;
     
     for (const [testName, result] of Object.entries(results)) {
         const status = result.success ? "✅ PASS" : "❌ FAIL";

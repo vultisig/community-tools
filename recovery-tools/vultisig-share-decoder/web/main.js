@@ -409,7 +409,8 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
                 localPartyId: vault.localPartyId || `party${i + 1}`,
                 resharePrefix: vault.resharePrefix || '',
                 filename: fileNames[i],
-                publicKeyEddsa: vault.publicKeyEddsa || ''
+                publicKeyEddsa: vault.publicKeyEddsa || '',
+                libType: vault.libType
             });
         } catch (error) {
             debugLog(`Failed to parse file ${i + 1} for algorithm detection: ${error.message}`);
@@ -731,7 +732,8 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
                 localPartyId: vault.localPartyId || `party${i + 1}`,
                 resharePrefix: vault.resharePrefix || '',
                 filename: fileNames[i],
-                publicKeyEddsa: vault.publicKeyEddsa || ''
+                publicKeyEddsa: vault.publicKeyEddsa || '',
+                libType: vault.libType
             });
         } catch (error) {
             debugLog(`Failed to parse file ${i + 1} for algorithm detection: ${error.message}`);
@@ -918,8 +920,8 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             throw new Error("Session finished but returned empty private key");
         }
 
-        const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Extracted private key: ${privateKeyHex}... (${privateKeyBytes.length} bytes)`);
+        const extractedKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+        debugLog(`Extracted private key: ${extractedKeyHex}... (${privateKeyBytes.length} bytes)`);
 
         // 🔍 DEBUG: Analyze the session.finish() result
         if (window.keyAnalysisDebug) {
@@ -948,27 +950,18 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         // debugLog(`Root Chain Code: ${rootChainCodeHex}`); // REMOVED: Sensitive data logging
 
-        // 🎯 IMPLEMENT: Extract EdDSA private key using discovered method
-        debugLog("Extracting EdDSA private key using session.finish('eddsa')...");
+        // Properly assign private keys based on algorithm type
+        let privateKeyHex = '';
         let eddsaPrivateKeyHex = '';
         
-        try {
-            const eddsaPrivateKeyBytes = session.finish('eddsa');
-            if (eddsaPrivateKeyBytes && eddsaPrivateKeyBytes.length > 0) {
-                eddsaPrivateKeyHex = Array.from(eddsaPrivateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-                debugLog(`✅ Successfully extracted EdDSA private key (${eddsaPrivateKeyBytes.length} bytes)`); // FIXED: Removed private key from log
-                
-                // Check if EdDSA key is different from ECDSA key
-                if (eddsaPrivateKeyHex === privateKeyHex) {
-                    debugLog("⚠️  WARNING: EdDSA and ECDSA private keys are identical");
-                } else {
-                    debugLog("✅ EdDSA private key is different from ECDSA private key - extraction successful!");
-                }
-            } else {
-                debugLog("⚠️  EdDSA extraction returned empty key - EdDSA not available in this vault");
-            }
-        } catch (eddsaFinishError) {
-            debugLog(`⚠️  EdDSA extraction failed: ${eddsaFinishError.message} - EdDSA keys not available`);
+        if (algorithm === 'eddsa') {
+            // For EdDSA algorithms, the session.finish() returns the EdDSA private key
+            eddsaPrivateKeyHex = extractedKeyHex;
+            debugLog(`EdDSA private key extracted using vs_schnorr_wasm module: ${eddsaPrivateKeyHex.substring(0, 8)}...`);
+        } else {
+            // For ECDSA algorithms, the session.finish() returns the ECDSA private key
+            privateKeyHex = extractedKeyHex;
+            debugLog(`ECDSA private key extracted using vs_wasm module: ${privateKeyHex.substring(0, 8)}...`);
         }
 
         // Now call the new ProcessDKLSFileContentJSON function with extracted keys
