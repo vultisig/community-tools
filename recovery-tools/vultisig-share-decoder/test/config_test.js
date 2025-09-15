@@ -4,7 +4,7 @@
 // This script validates that the unified architecture works correctly
 
 console.log("🧪 Comprehensive Enhanced Configuration System Test");
-console.log("=" * 60);
+console.log("=".repeat(60));
 
 // Test data for validation
 const TEST_PRIVATE_KEY = "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef";
@@ -232,16 +232,16 @@ function generateTestReport() {
     const totalPassed = test1.passed + test2.passed + test3.passed + test4.passed;
     const totalTests = test1.total + test2.total + test3.total + test4.total;
     
-    console.log("\n" + "=" * 60);
+    console.log("\n" + "=".repeat(60));
     console.log("📋 FINAL TEST RESULTS");
-    console.log("=" * 60);
+    console.log("=".repeat(60));
     
     console.log(`Configuration Structure: ${test1.passed}/${test1.total} ✅`);
     console.log(`Architectural Integration: ${test2.passed}/${test2.total} ✅`);
     console.log(`End-to-End Integration: ${test3.passed}/${test3.total} ✅`);
     console.log(`Specific Features: ${test4.passed}/${test4.total} ✅`);
     
-    console.log("\n" + "-" * 60);
+    console.log("\n" + "-".repeat(60));
     console.log(`OVERALL SCORE: ${totalPassed}/${totalTests} tests passed`);
     
     if (totalPassed === totalTests) {
@@ -259,7 +259,7 @@ function generateTestReport() {
     
     console.log("\n🔍 Manual testing recommendations:");
     console.log("   1. Open http://localhost:5000 in browser");
-    console.log("   2. Open browser console and run test_enhanced_config.js");
+    console.log("   2. Open browser console and run browser_test.js tests");
     console.log("   3. Test with sample vault files in examples/ directory");
     console.log("   4. Verify all 16 coins appear in GetSupportedCoinsJSON");
     console.log("   5. Test key derivation for different coin families");

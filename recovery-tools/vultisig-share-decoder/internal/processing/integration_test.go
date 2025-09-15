@@ -13,17 +13,17 @@ import (
 func TestGG20Integration(t *testing.T) {
 	// Expected results from the user
 	expectedResults := struct {
-		BitcoinAddress       string
-		EthereumAddress     string
-		ECDSAPublicKey      string
-		EdDSAPublicKey      string
-		ExtendedPrivateKey  string
+		BitcoinAddress     string
+		EthereumAddress    string
+		ECDSAPublicKey     string
+		EdDSAPublicKey     string
+		ExtendedPrivateKey string
 	}{
-		BitcoinAddress:      "bc1qvn203p8pp30fk945eywrjey937qpaanha8hc4r",
-		EthereumAddress:     "0x55a7Ea16A40f8c908CbC935D229eBe4C6658e90D",
-		ECDSAPublicKey:      "0267db81657a956f364167c3986a426b448a74ac0db2092f6665c4c202b37f6f1d",
-		EdDSAPublicKey:      "c6da2ad7b18728f6481d747a7335fd52a5eed82f3c3d95a51deed03399c5c0b6",
-		ExtendedPrivateKey:  "xprv9s21ZrQH143K4TfFdqRZMZ6KMdtE1qCYw8rQfHg2qezThKeEja525YECWLLaMb1aSYTV1aWfeSB87vXGi2LQC6Gf7oEUMLU5R2aKQ99ifMQ",
+		BitcoinAddress:     "bc1qvn203p8pp30fk945eywrjey937qpaanha8hc4r",
+		EthereumAddress:    "0x55a7Ea16A40f8c908CbC935D229eBe4C6658e90D",
+		ECDSAPublicKey:     "0267db81657a956f364167c3986a426b448a74ac0db2092f6665c4c202b37f6f1d",
+		EdDSAPublicKey:     "c6da2ad7b18728f6481d747a7335fd52a5eed82f3c3d95a51deed03399c5c0b6",
+		ExtendedPrivateKey: "xprv9s21ZrQH143K4TfFdqRZMZ6KMdtE1qCYw8rQfHg2qezThKeEja525YECWLLaMb1aSYTV1aWfeSB87vXGi2LQC6Gf7oEUMLU5R2aKQ99ifMQ",
 	}
 
 	t.Run("ProcessGG20ExampleFiles", func(t *testing.T) {
@@ -71,14 +71,14 @@ func TestGG20Integration(t *testing.T) {
 
 		// Validate public keys
 		if result.PublicKeys.ECDSA != expectedResults.ECDSAPublicKey {
-			t.Errorf("ECDSA public key mismatch:\nExpected: %s\nGot:      %s", 
+			t.Errorf("ECDSA public key mismatch:\nExpected: %s\nGot:      %s",
 				expectedResults.ECDSAPublicKey, result.PublicKeys.ECDSA)
 		} else {
 			t.Logf("✅ ECDSA public key matches: %s", result.PublicKeys.ECDSA)
 		}
 
 		if result.PublicKeys.EdDSA != expectedResults.EdDSAPublicKey {
-			t.Errorf("EdDSA public key mismatch:\nExpected: %s\nGot:      %s", 
+			t.Errorf("EdDSA public key mismatch:\nExpected: %s\nGot:      %s",
 				expectedResults.EdDSAPublicKey, result.PublicKeys.EdDSA)
 		} else {
 			t.Logf("✅ EdDSA public key matches: %s", result.PublicKeys.EdDSA)
@@ -90,7 +90,7 @@ func TestGG20Integration(t *testing.T) {
 		}
 
 		if result.RootKeyInfo.ExtendedPrivKey != expectedResults.ExtendedPrivateKey {
-			t.Errorf("Extended private key mismatch:\nExpected: %s\nGot:      %s", 
+			t.Errorf("Extended private key mismatch:\nExpected: %s\nGot:      %s",
 				expectedResults.ExtendedPrivateKey, result.RootKeyInfo.ExtendedPrivKey)
 		} else {
 			t.Logf("✅ Extended private key matches")
@@ -102,7 +102,7 @@ func TestGG20Integration(t *testing.T) {
 			if coinKey.Name == "bitcoin" {
 				bitcoinFound = true
 				if coinKey.Address != expectedResults.BitcoinAddress {
-					t.Errorf("Bitcoin address mismatch:\nExpected: %s\nGot:      %s", 
+					t.Errorf("Bitcoin address mismatch:\nExpected: %s\nGot:      %s",
 						expectedResults.BitcoinAddress, coinKey.Address)
 				} else {
 					t.Logf("✅ Bitcoin address matches: %s", coinKey.Address)
@@ -120,7 +120,7 @@ func TestGG20Integration(t *testing.T) {
 			if coinKey.Name == "ethereum" {
 				ethereumFound = true
 				if coinKey.Address != expectedResults.EthereumAddress {
-					t.Errorf("Ethereum address mismatch:\nExpected: %s\nGot:      %s", 
+					t.Errorf("Ethereum address mismatch:\nExpected: %s\nGot:      %s",
 						expectedResults.EthereumAddress, coinKey.Address)
 				} else {
 					t.Logf("✅ Ethereum address matches: %s", coinKey.Address)

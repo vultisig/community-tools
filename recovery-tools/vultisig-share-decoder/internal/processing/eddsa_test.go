@@ -10,7 +10,7 @@ import (
 // TestEdDSAConfigSetup verifies GetEnhancedEdDSACoins returns all 3 coins with proper handlers
 func TestEdDSAConfigSetup(t *testing.T) {
 	coins := GetEnhancedEdDSACoins()
-	
+
 	if len(coins) != 3 {
 		t.Fatalf("expected 3 EdDSA coins, got %d", len(coins))
 	}
@@ -67,7 +67,7 @@ func TestIndividualHandlers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate test key pair: %v", err)
 	}
-	
+
 	// Extract 32-byte seed from 64-byte private key for EdDSA handlers
 	privKey := privKey64.Seed()
 
@@ -116,7 +116,7 @@ func TestIndividualHandlers(t *testing.T) {
 func TestHandlerBasedApproach(t *testing.T) {
 	// This is a structural verification - we examine the code path
 	coins := GetEnhancedEdDSACoins()
-	
+
 	// Verify that each coin has an EdDSAHandler (required for handler-based approach)
 	for _, coin := range coins {
 		if coin.EdDSAHandler == nil {
@@ -128,7 +128,7 @@ func TestHandlerBasedApproach(t *testing.T) {
 	// 1. GetEnhancedEdDSACoins() to get configurations
 	// 2. coin.EdDSAHandler(privateKeyBytes, publicKeyBytes, coin) for each coin
 	// This confirms the handler-based approach without needing to run the full function
-	
+
 	t.Logf("✓ Verified handler-based approach: all %d coins have EdDSAHandler assigned", len(coins))
 }
 
@@ -139,7 +139,7 @@ func TestAddressFormats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate test key pair: %v", err)
 	}
-	
+
 	// Extract 32-byte seed from 64-byte private key for EdDSA handlers
 	privKey := privKey64.Seed()
 
