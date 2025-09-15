@@ -7,12 +7,14 @@ Vultisig doesn't expose private keys during vault creations and instead creates 
 
 ## Supported Recovery Networks
 It currently supports recovering the private keys from the following networks:
-UTXO Chains:
+
+*UTXO Chains:*
 - Bitcoin
 - Bitcoin Cash
 - Dogecoin
 - Litecoin
-Cosmos/BFT Chains:
+  
+*Cosmos/BFT Chains:*
 - Thorchain
 - Mayachain
 - Atom
@@ -20,7 +22,8 @@ Cosmos/BFT Chains:
 - Dydx
 - Terra Classic
 - Terra
-EVM Chains:
+  
+*EVM Chains:*
 - Ethereum
 - Tron
 

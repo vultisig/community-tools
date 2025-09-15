@@ -34,7 +34,7 @@ The Vultisig Share Decoder is a multi-platform application that recovers cryptog
 ├─────────────────────────────────────────────────────────────────┤
 │  ┌───────────────────────────────────────────────────────────┐ │
 │  │              internal/processing/                         │ │
-│  │        shared.go - ProcessFileContent()                   │ │
+│  │        shared.go - ProcessFileContentJSON()               │ │
 │  │         Main orchestration logic                          │ │
 │  │      Scheme Detection (GG20/DKLS/Auto)                   │ │
 │  └───────────────────────────────────────────────────────────┘ │
@@ -87,7 +87,7 @@ The Vultisig Share Decoder is a multi-platform application that recovers cryptog
 ### 2. Core Business Logic (`internal/`) - Organized by Function
 
 #### Processing Orchestration (`internal/processing/shared.go`)
-- **Main Function**: `ProcessFileContent()`
+- **Main Function**: `ProcessFileContentJSON()`
 - **Responsibilities**:
   - File type detection and routing
   - Scheme determination (GG20 vs DKLS vs Auto)
@@ -391,7 +391,7 @@ make all       # Build everything
 1. Create handler in `pkg/keyhandlers/`
 2. Add key derivation logic
 3. Implement format conversion (WIF, hex, etc.)
-4. Update `ProcessFileContent()` routing
+4. Update `ProcessFileContentJSON()` routing
 5. Test with both GG20 and DKLS schemes
 
 ### 2. Enhancing DKLS Processing

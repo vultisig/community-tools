@@ -4,7 +4,6 @@ import (
         "encoding/hex"
         "encoding/json"
         "fmt"
-        "strings"
 
         "github.com/btcsuite/btcd/btcutil/hdkeychain"
         "github.com/btcsuite/btcd/chaincfg"
@@ -98,7 +97,7 @@ func BuildRootKeyInfoFromBytes(rootPrivateKeyBytes, rootChainCodeBytes []byte) R
 }
 
 // ProcessRootKeyForCoinsJSON processes root key material and returns structured data
-func ProcessRootKeyForCoinsJSON(rootPrivateKeyBytes []byte, rootChainCodeBytes []byte, coinConfigs []CoinConfig) (RootKeyInfo, []CoinKeyInfo, error) {
+func ProcessRootKeyForCoinsJSON(rootPrivateKeyBytes []byte, rootChainCodeBytes []byte, coinConfigs []EnhancedCoinConfig) (RootKeyInfo, []CoinKeyInfo, error) {
         // Build root key info
         rootKeyInfo := BuildRootKeyInfoFromBytes(rootPrivateKeyBytes, rootChainCodeBytes)
         
@@ -119,21 +118,25 @@ func ProcessRootKeyForCoinsJSON(rootPrivateKeyBytes []byte, rootChainCodeBytes [
 
         var coinKeys []CoinKeyInfo
 
-        // Process each coin configuration
+        // Process each enhanced coin configuration using the appropriate handler
         for _, coin := range coinConfigs {
                 key, err := GetDerivedPrivateKeys(coin.DerivePath, extendedPrivateKey)
                 if err != nil {
                         return rootKeyInfo, nil, fmt.Errorf("error deriving private key for %s: %w", coin.Name, err)
                 }
 
-                // Use the existing action function to get the string output, then parse it
-                var outputBuilder strings.Builder
-                if err := coin.Action(key, &outputBuilder); err != nil {
-                        return rootKeyInfo, nil, fmt.Errorf("error showing keys for %s: %w", coin.Name, err)
+                // Use the enhanced configuration handler
+                var coinKeyInfo CoinKeyInfo
+                if coin.Handler != nil {
+                        coinKeyInfo, err = coin.Handler(key, coin)
+                } else {
+                        return rootKeyInfo, nil, fmt.Errorf("no handler available for coin: %s", coin.Name)
                 }
 
-                // Parse the string output into structured data
-                coinKeyInfo := parseCoinKeyOutput(coin.Name, coin.DerivePath, key.String(), outputBuilder.String())
+                if err != nil {
+                        return rootKeyInfo, nil, fmt.Errorf("error processing %s keys: %w", coin.Name, err)
+                }
+
                 coinKeys = append(coinKeys, coinKeyInfo)
         }
 
@@ -141,73 +144,33 @@ func ProcessRootKeyForCoinsJSON(rootPrivateKeyBytes []byte, rootChainCodeBytes [
 }
 
 // ProcessEdDSAKeyForCoinsJSON processes EdDSA key material and returns structured data
-func ProcessEdDSAKeyForCoinsJSON(eddsaPrivateKeyBytes []byte, eddsaPublicKeyBytes []byte, coinConfigs []CoinConfigEdDSA) ([]CoinKeyInfo, error) {
+func ProcessEdDSAKeyForCoinsJSON(eddsaPrivateKeyBytes []byte, eddsaPublicKeyBytes []byte, coinConfigs []EnhancedCoinConfig) ([]CoinKeyInfo, error) {
         var coinKeys []CoinKeyInfo
 
-        // Process each EdDSA coin configuration
+        // Process each EdDSA coin configuration using the handler-based approach
         for _, coin := range coinConfigs {
-                // Use the existing action function to get the string output, then parse it
-                var outputBuilder strings.Builder
-                if err := coin.Action(eddsaPrivateKeyBytes, eddsaPublicKeyBytes, &outputBuilder); err != nil {
-                        return nil, fmt.Errorf("error showing keys for %s: %w", coin.Name, err)
+                // Check if EdDSAHandler is available
+                if coin.EdDSAHandler == nil {
+                        return nil, fmt.Errorf("no EdDSA handler available for coin: %s", coin.Name)
                 }
 
-                // Parse the string output into structured data
-                coinKeyInfo := parseCoinKeyOutput(coin.Name, coin.DerivePath, "", outputBuilder.String())
+                // Use the coin's EdDSAHandler instead of switch statement
+                coinKeyInfo, err := coin.EdDSAHandler(eddsaPrivateKeyBytes, eddsaPublicKeyBytes, coin)
+                if err != nil {
+                        return nil, fmt.Errorf("error processing %s keys: %w", coin.Name, err)
+                }
+
                 coinKeys = append(coinKeys, coinKeyInfo)
         }
 
         return coinKeys, nil
 }
 
-// parseCoinKeyOutput parses the string output from coin handlers into structured data
-func parseCoinKeyOutput(coinName, derivePath, extendedKey, output string) CoinKeyInfo {
-        builder := NewCoinKeyBuilder(coinName, derivePath)
-        
-        if extendedKey != "" {
-                builder.SetExtendedPrivateKey(extendedKey)
-        }
-
-        lines := strings.Split(output, "\n")
-        for _, line := range lines {
-                line = strings.TrimSpace(line)
-                
-                // Parse different types of output based on patterns
-                if strings.Contains(line, "hex encoded") && strings.Contains(line, "private key") {
-                        parts := strings.Split(line, ":")
-                        if len(parts) > 1 {
-                                key := strings.TrimSpace(parts[1])
-                                // Remove any trailing notes in parentheses
-                                if idx := strings.Index(key, "("); idx != -1 {
-                                        key = strings.TrimSpace(key[:idx])
-                                }
-                                builder.SetHexPrivateKey(key)
-                        }
-                } else if strings.Contains(line, "hex encoded") && strings.Contains(line, "public key") {
-                        parts := strings.Split(line, ":")
-                        if len(parts) > 1 {
-                                builder.SetHexPublicKey(strings.TrimSpace(parts[1]))
-                        }
-                } else if strings.Contains(line, "address:") {
-                        parts := strings.Split(line, ":")
-                        if len(parts) > 1 {
-                                builder.SetAddress(strings.TrimSpace(parts[1]))
-                        }
-                } else if strings.Contains(line, "WIF private key") {
-                        parts := strings.Split(line, ":")
-                        if len(parts) > 1 {
-                                builder.SetWIFPrivateKey(strings.TrimSpace(parts[1]))
-                        }
-                }
-        }
-
-        return builder.Build()
-}
 
 // ConvertSupportedCoinsToJSON converts coin configs to JSON format
 func ConvertSupportedCoinsToJSON() GetSupportedCoinsResult {
-        ecdsaCoins := GetSupportedCoins()
-        eddsaCoins := GetEdDSACoins()
+        ecdsaCoins := GetEnhancedECDSACoins()
+        eddsaCoins := GetEnhancedEdDSACoins()
         
         var ecdsaSupportInfo []CoinSupportInfo
         for _, coin := range ecdsaCoins {
@@ -261,7 +224,7 @@ func DeriveAndShowKeysJSON(rootPrivateKeyHex, rootChainCodeHex string, eddsaPriv
         result.RootKeyInfo = BuildRootKeyInfoFromBytes(rootPrivateKeyBytes, rootChainCodeBytes)
 
         // Process ECDSA coins
-        ecdsaCoins := GetSupportedCoins()
+        ecdsaCoins := GetEnhancedECDSACoins()
         _, ecdsaKeyInfos, err := ProcessRootKeyForCoinsJSON(rootPrivateKeyBytes, rootChainCodeBytes, ecdsaCoins)
         if err != nil {
                 result.Success = false
@@ -286,7 +249,7 @@ func DeriveAndShowKeysJSON(rootPrivateKeyHex, rootChainCodeHex string, eddsaPriv
                         return result, err
                 }
 
-                eddsaCoins := GetEdDSACoins()
+                eddsaCoins := GetEnhancedEdDSACoins()
                 eddsaKeyInfos, err := ProcessEdDSAKeyForCoinsJSON(eddsaPrivateKeyBytes, eddsaPublicKeyBytes, eddsaCoins)
                 if err != nil {
                         result.Success = false

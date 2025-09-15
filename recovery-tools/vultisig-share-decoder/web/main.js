@@ -19,8 +19,9 @@ import { decryptWithAesGcm, fromBase64 } from './aes_gcm.js';
 // Initialize WASM modules
 const go = new Go();
 
-// Initialize main.wasm (Go WASM)
-const initMainWasm = WebAssembly.instantiateStreaming(fetch("main.wasm"), go.importObject)
+// Initialize main.wasm (Go WASM) with cache-busting
+const cacheBuster = Date.now();
+const initMainWasm = WebAssembly.instantiateStreaming(fetch(`main.wasm?v=${cacheBuster}`), go.importObject)
     .then((result) => {
         go.run(result.instance);
         debugLog("Main WASM initialized successfully");
@@ -466,9 +467,19 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         debugLog(`Extracted private key: ${privateKeyHex}... (${privateKeyBytes.length} bytes)`);
 
+        // 🔍 DEBUG: Analyze the session.finish() result
+        if (window.keyAnalysisDebug) {
+            window.keyAnalysisDebug.analyzeSessionFinishResult(privateKeyBytes);
+        }
+
         debugLog("Getting public key...");
         const publicKeyBytes = keyshares[0].publicKey();
         const publicKeyHex = Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // 🔍 DEBUG: Analyze the keyshare public key
+        if (window.keyAnalysisDebug) {
+            window.keyAnalysisDebug.analyzeKeysharePublicKey(keyshares[0], 0);
+        }
 
         debugLog("Getting EdDSA public key from vault...");
         const eddsaPublicKey = vaultInfos[0] ? vaultInfos.find(v => v.publicKeyEddsa)?.publicKeyEddsa || '' : '';
@@ -489,28 +500,24 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         let jsonKeysData = null;
         
         try {
-            if (window.DeriveAndShowKeysJSON) {
-                debugLog("Using JSON version of DeriveAndShowKeys");
-                const jsonResult = window.DeriveAndShowKeysJSON(privateKeyHex, rootChainCodeHex, "", eddsaPublicKey);
-                debugLog(`JSON result: ${jsonResult}`);
-                
-                try {
-                    jsonKeysData = JSON.parse(jsonResult);
-                    if (jsonKeysData.success) {
-                        derivedKeysOutput = formatDerivedKeysFromJSON(jsonKeysData);
-                    } else {
-                        derivedKeysOutput = `\nError deriving keys: ${jsonKeysData.error}`;
-                    }
-                } catch (parseError) {
-                    debugLog(`Error parsing JSON result: ${parseError.message}`);
-                    derivedKeysOutput = jsonResult; // Fall back to raw output
+            if (!window.DeriveAndShowKeysJSON) {
+                throw new Error("DeriveAndShowKeysJSON function not available. Please reload the page.");
+            }
+            
+            debugLog("Using JSON version of DeriveAndShowKeys");
+            const jsonResult = window.DeriveAndShowKeysJSON(privateKeyHex, rootChainCodeHex, "", eddsaPublicKey);
+            debugLog(`JSON result: ${jsonResult}`);
+            
+            try {
+                jsonKeysData = JSON.parse(jsonResult);
+                if (jsonKeysData.success) {
+                    derivedKeysOutput = formatDerivedKeysFromJSON(jsonKeysData);
+                } else {
+                    derivedKeysOutput = `\nError deriving keys: ${jsonKeysData.error}`;
                 }
-            } else if (window.DeriveAndShowKeys) {
-                debugLog("Using string version of DeriveAndShowKeys (fallback)");
-                derivedKeysOutput = window.DeriveAndShowKeys(privateKeyHex, rootChainCodeHex);
-                debugLog("Successfully derived keys using WASM");
-            } else {
-                debugLog("DeriveAndShowKeys function not available");
+            } catch (parseError) {
+                debugLog(`Error parsing JSON result: ${parseError.message}`);
+                throw new Error(`Failed to parse DeriveAndShowKeysJSON result: ${parseError.message}`);
             }
         } catch (wasmError) {
             debugLog(`WASM key derivation error: ${wasmError.message}`);
@@ -767,9 +774,19 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         debugLog(`Extracted private key: ${privateKeyHex}... (${privateKeyBytes.length} bytes)`);
 
+        // 🔍 DEBUG: Analyze the session.finish() result
+        if (window.keyAnalysisDebug) {
+            window.keyAnalysisDebug.analyzeSessionFinishResult(privateKeyBytes);
+        }
+
         debugLog("Getting public key...");
         const publicKeyBytes = keyshares[0].publicKey();
         const publicKeyHex = Array.from(publicKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+
+        // 🔍 DEBUG: Analyze the keyshare public key
+        if (window.keyAnalysisDebug) {
+            window.keyAnalysisDebug.analyzeKeysharePublicKey(keyshares[0], 0);
+        }
 
         debugLog("Getting EdDSA public key from vault...");
         const eddsaPublicKey = vaultInfos[0] ? vaultInfos.find(v => v.publicKeyEddsa)?.publicKeyEddsa || '' : '';
@@ -784,6 +801,29 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
         debugLog(`Root Chain Code: ${rootChainCodeHex}`);
 
+        // 🎯 IMPLEMENT: Extract EdDSA private key using discovered method
+        debugLog("Extracting EdDSA private key using session.finish('eddsa')...");
+        let eddsaPrivateKeyHex = '';
+        
+        try {
+            const eddsaPrivateKeyBytes = session.finish('eddsa');
+            if (eddsaPrivateKeyBytes && eddsaPrivateKeyBytes.length > 0) {
+                eddsaPrivateKeyHex = Array.from(eddsaPrivateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
+                debugLog(`✅ Successfully extracted EdDSA private key: ${eddsaPrivateKeyHex}... (${eddsaPrivateKeyBytes.length} bytes)`);
+                
+                // Check if EdDSA key is different from ECDSA key
+                if (eddsaPrivateKeyHex === privateKeyHex) {
+                    debugLog("⚠️  WARNING: EdDSA and ECDSA private keys are identical");
+                } else {
+                    debugLog("✅ EdDSA private key is different from ECDSA private key - extraction successful!");
+                }
+            } else {
+                debugLog("⚠️  EdDSA extraction returned empty key - EdDSA not available in this vault");
+            }
+        } catch (eddsaFinishError) {
+            debugLog(`⚠️  EdDSA extraction failed: ${eddsaFinishError.message} - EdDSA keys not available`);
+        }
+
         // Now call the new ProcessDKLSFileContentJSON function with extracted keys
         debugLog("Calling ProcessDKLSFileContentJSON function...");
         
@@ -792,7 +832,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             throw new Error("ProcessDKLSFileContentJSON function not available. Please reload the page.");
         }
 
-        const jsonResult = window.ProcessDKLSFileContentJSON(files, passwords, fileNames, privateKeyHex, rootChainCodeHex, eddsaPublicKey);
+        const jsonResult = window.ProcessDKLSFileContentJSON(files, passwords, fileNames, privateKeyHex, rootChainCodeHex, eddsaPublicKey, eddsaPrivateKeyHex);
         debugLog(`ProcessDKLSFileContentJSON result: ${jsonResult}`);
         
         let resultData;
@@ -878,14 +918,7 @@ async function processWithJSONWASM(files, passwords, fileNames) {
         
         // Check if JSON function is available
         if (!window.ProcessFilesJSON) {
-            debugLog("ProcessFilesJSON function not available, falling back to string version");
-            const result = window.ProcessFiles(files, passwords, fileNames);
-            if (!result || result === "undefined") {
-                debugLog("No results were generated. Reload the page and make sure you are using different shares.");
-                return;
-            }
-            displayResults(result);
-            return;
+            throw new Error("ProcessFilesJSON function not available. Please reload the page.");
         }
 
         const jsonResult = window.ProcessFilesJSON(files, passwords, fileNames);
@@ -1093,38 +1126,34 @@ function displayRootKeyInfo(rootKeyInfo) {
     document.getElementById('rootKeySection').style.display = 'block';
 }
 
-// Cryptocurrency icon mapping
+// Cryptocurrency icon mapping with smart fallback system
 function getCryptoIcon(coinName) {
+    // Explicit mapping for special cases (aliases, edge cases, non-standard naming)
     const iconMap = {
-        'bitcoin': 'bitcoin.png',
-        'bitcoincash': 'bitcoin-cash.png',
-        'ethereum': 'ethereum.png',
-        'litecoin': 'litecoin.png',
-        'dogecoin': 'dogecoin.png',
-        'solana': 'solana.png',
-        'tron': 'tron.png',
-        'sui': 'sui.png',
-        'ton': 'ton.png',
-        'thorchain': 'thorchain.png',
-        'mayachain': 'mayachain.png',
-        'atom': 'cosmos.png',
-        'cosmos': 'cosmos.png',
-        'kujira': 'kujira.png',
-        'dydx': 'dydx.png',
-        'terra': 'terra.png',
-        'terraclassic': 'luna-classic.png',
-        'luna': 'luna-classic.png'
+        'bitcoincash': 'bitcoin-cash.png',  // Special naming case
+        'atom': 'cosmos.png',               // Alias mapping
+        'cosmos': 'cosmos.png',             // Alias mapping
+        'terraclassic': 'luna-classic.png', // Special naming case
+        'luna': 'luna-classic.png'          // Alias mapping
     };
     
     const name = coinName.toLowerCase().replace(/[^a-z]/g, '');
-    const iconFile = iconMap[name];
     
-    if (iconFile) {
-        return `<img src="icons/${iconFile}" class="crypto-icon" alt="${coinName}" />`;
-    } else {
-        // Fallback to generic crypto symbol for unknown coins
-        return '<span class="crypto-icon-fallback">🪙</span>';
+    // Try explicit mapping first (for special cases)
+    if (iconMap[name]) {
+        return `<img src="icons/${iconMap[name]}" class="crypto-icon" alt="${coinName}" />`;
     }
+    
+    // Smart fallback: try auto-generated filename {coinname}.png
+    // This makes the system automatically work for new coins that follow naming convention
+    const autoIconFile = `${name}.png`;
+    const fallbackId = `fallback-${name}-${Date.now()}`; // Unique ID for fallback element
+    
+    return `<img src="icons/${autoIconFile}" 
+                 class="crypto-icon" 
+                 alt="${coinName}"
+                 onerror="this.style.display='none'; document.getElementById('${fallbackId}').style.display='inline';" />
+            <span id="${fallbackId}" class="crypto-icon-fallback" style="display:none;">🪙</span>`;
 }
 
 function displayCoinKeys(coinKeys) {
@@ -1317,8 +1346,7 @@ function parseOutput(rawOutput) {
         WIFPrivateKeys: {},
         ShareDetails: '',
         PublicKeyECDSA: '',
-        PublicKeyEDDSA: '',
-        RawOutput: rawOutput
+        PublicKeyEDDSA: ''
     };
 
     // Split the output into lines
@@ -1510,15 +1538,6 @@ function displayResults(result) {
             </div>`;
     }
 
-    html += `
-    <div class="result-section">
-        <h3 class="toggle-header" onclick="toggleSection('rawOutput')">
-        Full Output <span class="toggle-arrow">▼</span> 
-        </h3>
-        <div class="content" id="rawOutput"">
-            <pre class="debug-output">${parsed.RawOutput}</pre>
-        </div>
-    </div>`
 
     resultDiv.innerHTML = html;
     debugLog('Results displayed successfully');
