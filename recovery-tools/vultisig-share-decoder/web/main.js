@@ -9,7 +9,7 @@ function hideLoader() {
 function debugLog(message) {
     const debugOutput = document.getElementById('debugOutput');
     const timestamp = new Date().toISOString();
-    debugOutput.innerHTML += `${timestamp}: ${message}\n`;
+    debugOutput.textContent += `${timestamp}: ${message}\n`;
 }
 
 // Import vanilla JS protobuf functions
@@ -65,10 +65,49 @@ const initVsWasm = (async () => {
     }
 })();
 
-// Wait for both WASM modules to initialize
-Promise.all([initMainWasm, initVsWasm])
+// Initialize vs_schnorr_wasm_bg.wasm (EdDSA/Schnorr WASM module)
+const initVsSchnorrWasm = (async () => {
+    try {
+        debugLog("Starting vs_schnorr_wasm module import...");
+
+        // Import the vs_schnorr_wasm module as ES6 module
+        const vsSchnorrWasmModule = await import('./vs_schnorr_wasm.js');
+        debugLog("vs_schnorr_wasm module imported successfully");
+
+        // Initialize the WASM module with proper path
+        debugLog("Initializing Schnorr WASM binary...");
+        await vsSchnorrWasmModule.default('./vs_schnorr_wasm_bg.wasm');
+        debugLog("vs_schnorr_wasm WASM binary initialized successfully");
+
+        // Verify classes are available
+        if (!vsSchnorrWasmModule.Keyshare || !vsSchnorrWasmModule.KeyExportSession) {
+            throw new Error("Required Schnorr WASM classes (Keyshare, KeyExportSession) not found in module");
+        }
+
+        // Set up the module classes
+        window.vsSchnorrWasmModule = {
+            Keyshare: vsSchnorrWasmModule.Keyshare,
+            KeyExportSession: vsSchnorrWasmModule.KeyExportSession,
+            Message: vsSchnorrWasmModule.Message,
+            SignSession: vsSchnorrWasmModule.SignSession,
+            KeygenSession: vsSchnorrWasmModule.KeygenSession
+        };
+
+        debugLog("vs_schnorr_wasm classes configured successfully");
+        debugLog(`Available Schnorr classes: ${Object.keys(window.vsSchnorrWasmModule).join(', ')}`);
+        return window.vsSchnorrWasmModule;
+    } catch (error) {
+        debugLog(`vs_schnorr_wasm initialization failed: ${error.message}`);
+        debugLog(`Error stack: ${error.stack}`);
+        debugLog("Note: vs_schnorr_wasm is optional for EdDSA/Schnorr processing");
+        return null;
+    }
+})();
+
+// Wait for all three WASM modules to initialize
+Promise.all([initMainWasm, initVsWasm, initVsSchnorrWasm])
     .then((results) => {
-        const [mainResult, vsResult] = results;
+        const [mainResult, vsResult, vsSchnorrResult] = results;
         if (mainResult) {
             debugLog("Main WASM module initialized successfully");
         }
@@ -76,6 +115,11 @@ Promise.all([initMainWasm, initVsWasm])
             debugLog("vs_wasm module initialized successfully");
         } else {
             debugLog("vs_wasm module failed to initialize - continuing without it");
+        }
+        if (vsSchnorrResult) {
+            debugLog("vs_schnorr_wasm module initialized successfully");
+        } else {
+            debugLog("vs_schnorr_wasm module failed to initialize - continuing without it");
         }
         debugLog("Application initialization complete");
         hideLoader();
@@ -92,6 +136,81 @@ Promise.all([initMainWasm, initVsWasm])
                 `<div style="color: var(--error-color);">Error loading application: ${mainErr}</div>`;
         });
     });
+
+// Module selection utility - determines which WASM module to use based on algorithm/coin
+function getVsModule(algorithmOrCoin) {
+    debugLog(`Getting WASM module for: ${algorithmOrCoin}`);
+    
+    // Direct algorithm specification
+    if (algorithmOrCoin === 'eddsa' || algorithmOrCoin === 'schnorr') {
+        if (window.vsSchnorrWasmModule) {
+            debugLog("Using vsSchnorrWasmModule for EdDSA/Schnorr");
+            return window.vsSchnorrWasmModule;
+        } else {
+            debugLog("Warning: EdDSA/Schnorr module requested but not available");
+            return null;
+        }
+    }
+    
+    if (algorithmOrCoin === 'ecdsa') {
+        if (window.vsWasmModule) {
+            debugLog("Using vsWasmModule for ECDSA");
+            return window.vsWasmModule;
+        } else {
+            debugLog("Warning: ECDSA module requested but not available");
+            return null;
+        }
+    }
+    
+    // Coin-based detection (for EdDSA coins)
+    const eddsaCoins = ['solana', 'sui', 'ton'];
+    if (eddsaCoins.includes(algorithmOrCoin)) {
+        if (window.vsSchnorrWasmModule) {
+            debugLog(`Using vsSchnorrWasmModule for EdDSA coin: ${algorithmOrCoin}`);
+            return window.vsSchnorrWasmModule;
+        } else {
+            debugLog(`Warning: EdDSA coin ${algorithmOrCoin} requested but Schnorr module not available`);
+            return null;
+        }
+    }
+    
+    // Default to ECDSA module for unknown coins or general usage
+    if (window.vsWasmModule) {
+        debugLog(`Using vsWasmModule as default for: ${algorithmOrCoin}`);
+        return window.vsWasmModule;
+    } else {
+        debugLog("Warning: Default ECDSA module not available");
+        return null;
+    }
+}
+
+// Utility to detect algorithm from vault or keyshare data
+function detectAlgorithmFromVault(vaultInfos) {
+    if (!vaultInfos || vaultInfos.length === 0) {
+        return 'ecdsa'; // default
+    }
+    
+    // Prefer libType over publicKeyEddsa for more reliable algorithm detection
+    const hasEddsaLib = vaultInfos.some(v => v.libType === LibType.DKLS_EDDSA);
+    if (hasEddsaLib) {
+        debugLog("Detected EdDSA algorithm from vault libType");
+        return 'eddsa';
+    }
+    
+    // Fallback: Check if any vault has EdDSA public key
+    const hasEddsaKey = vaultInfos.some(v => v.publicKeyEddsa && v.publicKeyEddsa.length > 0);
+    if (hasEddsaKey) {
+        debugLog("Detected EdDSA algorithm from vault publicKeyEddsa (fallback)");
+        return 'eddsa';
+    }
+    
+    debugLog("Detected ECDSA algorithm from vault data");
+    return 'ecdsa';
+}
+
+// Make utility functions globally available
+window.getVsModule = getVsModule;
+window.detectAlgorithmFromVault = detectAlgorithmFromVault;
 
 function addFileInput() {
     const container = document.getElementById('fileInputs');
@@ -206,7 +325,7 @@ async function parseAndDecryptVault(fileData, password) {
         }
 
         debugLog(`Found keyshare string: ${keyshareString.length} characters`);
-        debugLog(`Keyshare preview: ${keyshareString.substring(0, 100)}...`);
+        // debugLog(`Keyshare preview: ${keyshareString.substring(0, 100)}...`); // REMOVED: Sensitive data logging
 
         // Try to decode the keyshare string as hex first, then base64
         let keyshareData;
@@ -236,7 +355,7 @@ async function parseAndDecryptVault(fileData, password) {
         }
 
         debugLog(`Successfully extracted keyshare data, length: ${keyshareData.length} bytes`);
-        debugLog(`First 32 bytes: ${Array.from(keyshareData.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+        // debugLog(`First 32 bytes: ${Array.from(keyshareData.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`); // REMOVED: Sensitive data logging
 
         return keyshareData;
 
@@ -247,69 +366,83 @@ async function parseAndDecryptVault(fileData, password) {
 }
 
 async function processDKLSWithWASM(files, passwords, fileNames) {
-    if (!window.vsWasmModule) {
-        throw new Error("DKLS WASM module not available. Please reload the page.");
-    }
-
-    debugLog("Starting DKLS processing with vs_wasm...");
-    const { KeyExportSession, Keyshare } = window.vsWasmModule;
-
-    if (!Keyshare || !KeyExportSession) {
-        throw new Error("WASM classes not properly initialized");
-    }
+    debugLog("Starting DKLS processing with algorithm auto-detection...");
 
     if (files.length < 2) {
         throw new Error("DKLS requires at least 2 keyshare files.");
     }
 
+    // First pass: parse vault infos to detect algorithm
+    const vaultInfos = [];
+    for (let i = 0; i < files.length; i++) {
+        debugLog(`Pre-processing file ${i + 1} for algorithm detection: ${fileNames[i]}`);
+        const password = passwords[i] || "";
+
+        try {
+            // Parse and decrypt vault container to get vault info
+            let vaultContainerData = files[i];
+            try {
+                const base64String = new TextDecoder().decode(files[i]);
+                const decoded = fromBase64(base64String);
+                if (decoded.length > 100) {
+                    vaultContainerData = decoded;
+                }
+            } catch (e) {
+                // Not base64, use raw data
+            }
+
+            const vaultContainer = parseVaultContainer(vaultContainerData);
+            let vaultData;
+            if (vaultContainer.isEncrypted) {
+                const encryptedVaultBytes = fromBase64(vaultContainer.vault);
+                vaultData = await decryptWithAesGcm({
+                    key: password,
+                    value: encryptedVaultBytes
+                });
+            } else {
+                vaultData = fromBase64(vaultContainer.vault);
+            }
+
+            const vault = parseVault(vaultData);
+            vaultInfos.push({
+                name: vault.name || fileNames[i],
+                localPartyId: vault.localPartyId || `party${i + 1}`,
+                resharePrefix: vault.resharePrefix || '',
+                filename: fileNames[i],
+                publicKeyEddsa: vault.publicKeyEddsa || ''
+            });
+        } catch (error) {
+            debugLog(`Failed to parse file ${i + 1} for algorithm detection: ${error.message}`);
+            throw new Error(`Failed to parse vault ${i + 1}: ${error.message}`);
+        }
+    }
+
+    // Detect algorithm and get appropriate WASM module
+    const algorithm = detectAlgorithmFromVault(vaultInfos);
+    const vsModule = getVsModule(algorithm);
+    
+    if (!vsModule) {
+        throw new Error(`${algorithm.toUpperCase()} WASM module not available. Please reload the page.`);
+    }
+
+    debugLog(`Using ${algorithm.toUpperCase()} processing with appropriate WASM module`);
+    const { KeyExportSession, Keyshare } = vsModule;
+
+    if (!Keyshare || !KeyExportSession) {
+        throw new Error(`${algorithm.toUpperCase()} WASM classes not properly initialized`);
+    }
+
     try {
-        debugLog(`Processing ${files.length} DKLS files...`);
+        debugLog(`Processing ${files.length} DKLS files with ${algorithm.toUpperCase()}...`);
         const keyshares = [];
         const keyIds = [];
-
-        // Process each vault file and extract vault info
-        const vaultInfos = [];
         
+        // Second pass: extract keyshare data using the already parsed vault info
         for (let i = 0; i < files.length; i++) {
-            debugLog(`Processing file ${i + 1}: ${fileNames[i]}`);
+            debugLog(`Extracting keyshare data from file ${i + 1}: ${fileNames[i]}`);
             const password = passwords[i] || "";
 
             try {
-                // Parse and decrypt vault container first to get vault info
-                let vaultContainerData = files[i];
-                try {
-                    const base64String = new TextDecoder().decode(files[i]);
-                    const decoded = fromBase64(base64String);
-                    if (decoded.length > 100) {
-                        vaultContainerData = decoded;
-                    }
-                } catch (e) {
-                    // Not base64, use raw data
-                }
-
-                const vaultContainer = parseVaultContainer(vaultContainerData);
-                let vaultData;
-                if (vaultContainer.isEncrypted) {
-                    const encryptedVaultBytes = fromBase64(vaultContainer.vault);
-                    vaultData = await decryptWithAesGcm({
-                        key: password,
-                        value: encryptedVaultBytes
-                    });
-                } else {
-                    vaultData = fromBase64(vaultContainer.vault);
-                }
-
-                const vault = parseVault(vaultData);
-                
-                // Store vault info for later use
-                vaultInfos.push({
-                    name: vault.name || fileNames[i],
-                    localPartyId: vault.localPartyId || `party${i + 1}`,
-                    resharePrefix: vault.resharePrefix || '',
-                    filename: fileNames[i],
-                    publicKeyEddsa: vault.publicKeyEddsa || ''
-                });
-
                 // Parse and decrypt vault container for keyshare data
                 const keyshareData = await parseAndDecryptVault(files[i], password);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
@@ -492,7 +625,7 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         debugLog("Getting root chain code...");
         const rootChainCodeBytes = keyshares[0].rootChainCode();
         const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Root Chain Code: ${rootChainCodeHex}`);
+        // debugLog(`Root Chain Code: ${rootChainCodeHex}`); // REMOVED: Sensitive data logging
 
         // Call the new JSON WASM function to derive keys for all supported coins
         debugLog("Calling WASM DeriveAndShowKeysJSON function...");
@@ -555,69 +688,83 @@ ${derivedKeysOutput}
 
 // New function to process DKLS files and return structured JSON (same format as GG20)
 async function processDKLSWithJSON(files, passwords, fileNames) {
-    if (!window.vsWasmModule) {
-        throw new Error("DKLS WASM module not available. Please reload the page.");
-    }
-
-    debugLog("Starting DKLS processing with structured JSON output...");
-    const { KeyExportSession, Keyshare } = window.vsWasmModule;
-
-    if (!Keyshare || !KeyExportSession) {
-        throw new Error("WASM classes not properly initialized");
-    }
+    debugLog("Starting DKLS processing with structured JSON output and algorithm auto-detection...");
 
     if (files.length < 2) {
         throw new Error("DKLS requires at least 2 keyshare files.");
     }
 
+    // First pass: parse vault infos to detect algorithm
+    const vaultInfos = [];
+    for (let i = 0; i < files.length; i++) {
+        debugLog(`Pre-processing file ${i + 1} for algorithm detection: ${fileNames[i]}`);
+        const password = passwords[i] || "";
+
+        try {
+            // Parse and decrypt vault container to get vault info
+            let vaultContainerData = files[i];
+            try {
+                const base64String = new TextDecoder().decode(files[i]);
+                const decoded = fromBase64(base64String);
+                if (decoded.length > 100) {
+                    vaultContainerData = decoded;
+                }
+            } catch (e) {
+                // Not base64, use raw data
+            }
+
+            const vaultContainer = parseVaultContainer(vaultContainerData);
+            let vaultData;
+            if (vaultContainer.isEncrypted) {
+                const encryptedVaultBytes = fromBase64(vaultContainer.vault);
+                vaultData = await decryptWithAesGcm({
+                    key: password,
+                    value: encryptedVaultBytes
+                });
+            } else {
+                vaultData = fromBase64(vaultContainer.vault);
+            }
+
+            const vault = parseVault(vaultData);
+            vaultInfos.push({
+                name: vault.name || fileNames[i],
+                localPartyId: vault.localPartyId || `party${i + 1}`,
+                resharePrefix: vault.resharePrefix || '',
+                filename: fileNames[i],
+                publicKeyEddsa: vault.publicKeyEddsa || ''
+            });
+        } catch (error) {
+            debugLog(`Failed to parse file ${i + 1} for algorithm detection: ${error.message}`);
+            throw new Error(`Failed to parse vault ${i + 1}: ${error.message}`);
+        }
+    }
+
+    // Detect algorithm and get appropriate WASM module
+    const algorithm = detectAlgorithmFromVault(vaultInfos);
+    const vsModule = getVsModule(algorithm);
+    
+    if (!vsModule) {
+        throw new Error(`${algorithm.toUpperCase()} WASM module not available. Please reload the page.`);
+    }
+
+    debugLog(`Using ${algorithm.toUpperCase()} processing with appropriate WASM module`);
+    const { KeyExportSession, Keyshare } = vsModule;
+
+    if (!Keyshare || !KeyExportSession) {
+        throw new Error(`${algorithm.toUpperCase()} WASM classes not properly initialized`);
+    }
+
     try {
-        debugLog(`Processing ${files.length} DKLS files...`);
+        debugLog(`Processing ${files.length} DKLS files with ${algorithm.toUpperCase()}...`);
         const keyshares = [];
         const keyIds = [];
 
-        // Process each vault file and extract vault info (same as existing function)
-        const vaultInfos = [];
-        
+        // Second pass: extract keyshare data using the already parsed vault info
         for (let i = 0; i < files.length; i++) {
-            debugLog(`Processing file ${i + 1}: ${fileNames[i]}`);
+            debugLog(`Extracting keyshare data from file ${i + 1}: ${fileNames[i]}`);
             const password = passwords[i] || "";
 
             try {
-                // Parse and decrypt vault container first to get vault info
-                let vaultContainerData = files[i];
-                try {
-                    const base64String = new TextDecoder().decode(files[i]);
-                    const decoded = fromBase64(base64String);
-                    if (decoded.length > 100) {
-                        vaultContainerData = decoded;
-                    }
-                } catch (e) {
-                    // Not base64, use raw data
-                }
-
-                const vaultContainer = parseVaultContainer(vaultContainerData);
-                let vaultData;
-                if (vaultContainer.isEncrypted) {
-                    const encryptedVaultBytes = fromBase64(vaultContainer.vault);
-                    vaultData = await decryptWithAesGcm({
-                        key: password,
-                        value: encryptedVaultBytes
-                    });
-                } else {
-                    vaultData = fromBase64(vaultContainer.vault);
-                }
-
-                const vault = parseVault(vaultData);
-                
-                // Store vault info for later use
-                vaultInfos.push({
-                    name: vault.name || fileNames[i],
-                    localPartyId: vault.localPartyId || `party${i + 1}`,
-                    resharePrefix: vault.resharePrefix || '',
-                    filename: fileNames[i],
-                    publicKeyEddsa: vault.publicKeyEddsa || ''
-                });
-
                 // Parse and decrypt vault container for keyshare data
                 const keyshareData = await parseAndDecryptVault(files[i], password);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
@@ -799,7 +946,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         debugLog("Getting root chain code...");
         const rootChainCodeBytes = keyshares[0].rootChainCode();
         const rootChainCodeHex = Array.from(rootChainCodeBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-        debugLog(`Root Chain Code: ${rootChainCodeHex}`);
+        // debugLog(`Root Chain Code: ${rootChainCodeHex}`); // REMOVED: Sensitive data logging
 
         // 🎯 IMPLEMENT: Extract EdDSA private key using discovered method
         debugLog("Extracting EdDSA private key using session.finish('eddsa')...");
@@ -809,7 +956,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             const eddsaPrivateKeyBytes = session.finish('eddsa');
             if (eddsaPrivateKeyBytes && eddsaPrivateKeyBytes.length > 0) {
                 eddsaPrivateKeyHex = Array.from(eddsaPrivateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
-                debugLog(`✅ Successfully extracted EdDSA private key: ${eddsaPrivateKeyHex}... (${eddsaPrivateKeyBytes.length} bytes)`);
+                debugLog(`✅ Successfully extracted EdDSA private key (${eddsaPrivateKeyBytes.length} bytes)`); // FIXED: Removed private key from log
                 
                 // Check if EdDSA key is different from ECDSA key
                 if (eddsaPrivateKeyHex === privateKeyHex) {
