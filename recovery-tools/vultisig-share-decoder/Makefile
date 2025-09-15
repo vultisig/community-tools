@@ -1,4 +1,4 @@
-all: webserver wasm
+all: check webserver wasm
 
 webserver:
 	@echo "Building web server..."
@@ -25,13 +25,24 @@ test-all: test test-js
 
 check:
 	@echo "Checking code formatting..."
-	go fmt ./...
+	@if [ -n "$$(gofmt -l .)" ]; then \
+		echo "❌ Code formatting issues found:"; \
+		gofmt -l .; \
+		echo "Run 'make format' to fix formatting"; \
+		exit 1; \
+	fi
+	@echo "✅ Code formatting is clean"
 	@echo "Running go vet..."
 	go vet ./...
+	@echo "✅ go vet passed"
+format:
+	@echo "Formatting Go code..."
+	gofmt -w .
+	@echo "✅ Code formatted"
 
 clean:
 	@echo "Cleaning build artifacts..."
 	rm -rf dist/
 	rm -f static/main.wasm
 
-.PHONY: all webserver wasm build test test-js test-all check clean
+.PHONY: all webserver wasm build test test-js test-all check format clean
