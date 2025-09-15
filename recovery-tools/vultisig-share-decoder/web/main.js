@@ -98,34 +98,6 @@ function updateDebugConfig() {
         logWarn('DEBUG', 'SetDebugConfig function not available - WASM not initialized');
     }
 
-    // Update UI state - enable controls only when structured debug is enabled
-    const configElements = [document.getElementById('debugLevel'), categoriesSelect, document.getElementById('includeSensitive')];
-    configElements.forEach(element => {
-        if (element) {
-            element.disabled = !enabled;
-            // Also add visual feedback
-            if (enabled) {
-                element.style.opacity = '1';
-                element.style.cursor = 'pointer';
-            } else {
-                element.style.opacity = '0.5';
-                element.style.cursor = 'not-allowed';
-            }
-        }
-    });
-    
-    // Update the parent container visual state
-    const configGroup = document.querySelector('.debug-options');
-    if (configGroup) {
-        if (enabled) {
-            configGroup.style.opacity = '1';
-            configGroup.style.borderLeftColor = 'var(--primary-color)';
-        } else {
-            configGroup.style.opacity = '0.6';
-            configGroup.style.borderLeftColor = 'rgba(169, 169, 233, 0.3)';
-        }
-    }
-
     logInfo('DEBUG', `Structured debug ${enabled ? 'enabled' : 'disabled'} - Level: ${level}, Categories: [${categories.join(', ')}], Sensitive: ${includeSensitive}`);
 }
 
