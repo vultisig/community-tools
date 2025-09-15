@@ -191,6 +191,155 @@ h1 {
     background: rgba(0, 0, 0, 0.3);
     padding: 15px;
     border-radius: 6px;
+    max-height: 400px;
+    overflow-y: auto;
+    display: none;
+}
+
+.debug-output.active {
+    display: block;
+}
+
+/* Debug header with controls */
+.debug-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.debug-config-content {
+    background-color: rgba(169, 169, 233, 0.05);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+}
+
+.debug-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.debug-options {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 0.5rem;
+    background-color: rgba(0, 255, 204, 0.05);
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--primary-color);
+}
+
+.debug-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.debug-option label {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    white-space: nowrap;
+}
+
+.debug-option select {
+    background-color: var(--secondary-color);
+    border: 1px solid rgba(169, 169, 233, 0.3);
+    border-radius: 4px;
+    color: var(--text-color);
+    padding: 0.4rem;
+    font-size: 0.85rem;
+    min-width: 100px;
+}
+
+.debug-option select[multiple] {
+    min-height: 60px;
+    min-width: 150px;
+}
+
+.debug-option select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.2);
+}
+
+.debug-option select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.debug-checkbox,
+.sensitive-checkbox,
+.verbose-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.debug-checkbox input[type="checkbox"],
+.sensitive-checkbox input[type="checkbox"],
+.verbose-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-color);
+}
+
+.sensitive-checkbox {
+    color: var(--error-color);
+    font-weight: 500;
+}
+
+.verbose-checkbox {
+    color: var(--accent-color);
+    border-top: 1px solid rgba(169, 169, 233, 0.2);
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Debug tabs */
+.debug-tabs-container {
+    border: 1px solid rgba(0, 255, 204, 0.2);
+    border-radius: var(--border-radius);
+    background-color: rgba(0, 0, 0, 0.2);
+}
+
+.debug-tabs {
+    display: flex;
+    border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+    background-color: rgba(0, 0, 0, 0.1);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
+}
+
+.debug-tab {
+    background: none;
+    border: none;
+    color: var(--text-color);
+    padding: 0.75rem 1.5rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: all var(--transition-speed) ease;
+    border-bottom: 3px solid transparent;
+}
+
+.debug-tab:hover {
+    background-color: rgba(0, 255, 204, 0.1);
+    color: var(--primary-color);
+}
+
+.debug-tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+    background-color: rgba(0, 255, 204, 0.05);
+}
+
+.debug-content {
+    position: relative;
+    min-height: 200px;
     border: 1px solid rgba(255, 255, 255, 0.1);
     margin-top: 10px;
 }
@@ -569,7 +718,6 @@ pre {
       padding: 0.75rem;
     }
   }
-}
 
 /* Utility Classes */
 .hidden {

@@ -56,13 +56,29 @@ func main() {
 
 		// Process the files and return JSON
 		result, err := processing.ProcessFileContentJSON(fileInfos, passwords, utils.Web)
-		if err != nil {
-			errorResult := processing.ProcessResult{
-				Success: false,
-				Error:   err.Error(),
+
+		// Capture debug information and attach to result
+		debugPayload := processing.Debug().Flush()
+		if debugPayload.Enabled {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+					Debug:   &debugPayload,
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
 			}
-			jsonStr, _ := processing.ToJSON(errorResult)
-			return jsonStr
+			result.Debug = &debugPayload
+		} else {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
+			}
 		}
 
 		jsonStr, err := processing.ToJSON(result)
@@ -70,6 +86,9 @@ func main() {
 			errorResult := processing.ProcessResult{
 				Success: false,
 				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			if debugPayload.Enabled {
+				errorResult.Debug = &debugPayload
 			}
 			fallbackJSON, _ := processing.ToJSON(errorResult)
 			return fallbackJSON
@@ -99,6 +118,13 @@ func main() {
 		}
 
 		result, err := processing.DeriveAndShowKeysJSON(rootPrivateKeyHex, rootChainCodeHex, eddsaPrivateKeyHex, eddsaPublicKeyHex)
+
+		// Capture debug information and attach to result
+		debugPayload := processing.Debug().Flush()
+		if debugPayload.Enabled {
+			result.Debug = &debugPayload
+		}
+
 		if err != nil {
 			// Error result is already in result struct
 			jsonStr, _ := processing.ToJSON(result)
@@ -110,6 +136,9 @@ func main() {
 			errorResult := processing.DeriveKeysResult{
 				Success: false,
 				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			if debugPayload.Enabled {
+				errorResult.Debug = &debugPayload
 			}
 			fallbackJSON, _ := processing.ToJSON(errorResult)
 			return fallbackJSON
@@ -169,13 +198,29 @@ func main() {
 
 		// Process the DKLS files and return JSON
 		result, err := processing.ProcessDKLSFileContentJSON(fileInfos, passwords, ecdsaPrivateKeyHex, rootChainCodeHex, eddsaPublicKeyHex, eddsaPrivateKeyHex)
-		if err != nil {
-			errorResult := processing.ProcessResult{
-				Success: false,
-				Error:   err.Error(),
+
+		// Capture debug information and attach to result
+		debugPayload := processing.Debug().Flush()
+		if debugPayload.Enabled {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+					Debug:   &debugPayload,
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
 			}
-			jsonStr, _ := processing.ToJSON(errorResult)
-			return jsonStr
+			result.Debug = &debugPayload
+		} else {
+			if err != nil {
+				errorResult := processing.ProcessResult{
+					Success: false,
+					Error:   err.Error(),
+				}
+				jsonStr, _ := processing.ToJSON(errorResult)
+				return jsonStr
+			}
 		}
 
 		jsonStr, err := processing.ToJSON(result)
@@ -183,6 +228,9 @@ func main() {
 			errorResult := processing.ProcessResult{
 				Success: false,
 				Error:   fmt.Sprintf("Error converting to JSON: %v", err),
+			}
+			if debugPayload.Enabled {
+				errorResult.Debug = &debugPayload
 			}
 			fallbackJSON, _ := processing.ToJSON(errorResult)
 			return fallbackJSON
@@ -204,6 +252,52 @@ func main() {
 			return fallbackJSON
 		}
 		return jsonStr
+	}))
+
+	// SetDebugConfig - Configure debug settings from frontend
+	js.Global().Set("SetDebugConfig", js.FuncOf(func(this js.Value, args []js.Value) interface{} {
+		if len(args) < 4 {
+			return "SetDebugConfig requires 4 arguments: enabled (bool), level (string), categories (array), includeSensitive (bool)"
+		}
+
+		enabled := args[0].Bool()
+		levelStr := args[1].String()
+		includeSensitive := args[3].Bool()
+
+		// Convert level string to DebugLevel
+		var level processing.DebugLevel
+		switch levelStr {
+		case "DEBUG":
+			level = processing.DEBUG
+		case "INFO":
+			level = processing.INFO
+		case "WARN":
+			level = processing.WARN
+		case "ERROR":
+			level = processing.ERROR
+		default:
+			level = processing.INFO
+		}
+
+		// Convert categories array
+		var categories []string
+		if !args[2].IsNull() && args[2].Length() > 0 {
+			categories = make([]string, args[2].Length())
+			for i := 0; i < args[2].Length(); i++ {
+				categories[i] = args[2].Index(i).String()
+			}
+		}
+
+		config := processing.DebugConfig{
+			Enabled:          enabled,
+			Level:            level,
+			Categories:       categories,
+			IncludeSensitive: includeSensitive,
+			Capacity:         1000,
+		}
+
+		processing.SetDebugConfig(config)
+		return "Debug config updated"
 	}))
 
 	log.Println("WASM initialization complete, waiting for JS calls...")

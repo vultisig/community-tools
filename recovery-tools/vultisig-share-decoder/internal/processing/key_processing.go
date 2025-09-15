@@ -141,6 +141,11 @@ func reconstructTSSKey(vssShares vss.Shares, threshold int, curveType CurveType)
 	}
 
 	log.Printf("Attempting to reconstruct %s key with threshold %d from %d shares", curveTypeName, threshold, len(vssShares))
+	Debug().Emit(INFO, "ECDSA", "Starting key reconstruction", map[string]any{
+		"curve_type":  curveTypeName,
+		"threshold":   threshold,
+		"share_count": len(vssShares),
+	})
 	tssPrivateKey, err := vssShares[:threshold].ReConstruct(curve)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reconstruct %s private key: %w", curveTypeName, err)
@@ -209,9 +214,17 @@ func (p *ECDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 
 	for _, coinConfig := range enhancedCoins {
 		log.Printf("Processing %s key derivation", coinConfig.Name)
+		Debug().Emit(DEBUG, "COIN", "Deriving coin key", map[string]any{
+			"coin":        coinConfig.Name,
+			"derive_path": coinConfig.DerivePath,
+		})
 		key, err := GetDerivedPrivateKeys(coinConfig.DerivePath, extendedPrivateKey)
 		if err != nil {
 			log.Printf("Error deriving private key for %s: %v", coinConfig.Name, err)
+			Debug().Emit(ERROR, "COIN", "Failed to derive private key", map[string]any{
+				"coin":  coinConfig.Name,
+				"error": err.Error(),
+			})
 			continue
 		}
 
@@ -243,14 +256,33 @@ func (p *ECDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 type EdDSAKeyProcessor struct{}
 
 func (p *EdDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []utils.TempLocalState) (*ProcessingResult, error) {
-	// Generate Ed25519 key pair
-	tssPrivateKeyScalar := tssPrivateKey.Bytes()
-	privateKey, publicKey, err := edwards.PrivKeyFromScalar(tssPrivateKeyScalar)
+	// Ed25519 curve order: 2^252 + 27742317777372353535851937790883648493
+	curveOrder := new(big.Int)
+	curveOrder.SetString("7237005577332262213973186563042994240857116359379907606001950938285454250989", 10)
+
+	var privateKeyBytes []byte
+
+	// Check if the key is already properly formatted (DKLS case) or needs TSS processing (GG20 case)
+	// DKLS keys are already 32 bytes and within curve order, GG20 keys may need reduction
+	keyBytes := tssPrivateKey.Bytes()
+	if len(keyBytes) == 32 && tssPrivateKey.Cmp(curveOrder) < 0 {
+		// Key is already properly formatted (DKLS case) - use directly
+		privateKeyBytes = keyBytes
+	} else {
+		// Key needs curve order reduction (GG20 case)
+		reducedPrivateKey := new(big.Int).Mod(tssPrivateKey, curveOrder)
+		reducedBytes := reducedPrivateKey.Bytes()
+		var tssPrivateKeyScalar [32]byte
+		copy(tssPrivateKeyScalar[32-len(reducedBytes):], reducedBytes)
+		privateKeyBytes = tssPrivateKeyScalar[:]
+	}
+
+	privateKey, publicKey, err := edwards.PrivKeyFromScalar(privateKeyBytes)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate Ed25519 key pair: %w", err)
 	}
 	publicKeyBytes := publicKey.Serialize()
-	privateKeyBytes := privateKey.Serialize()
+	privateKeyBytes = privateKey.Serialize()
 
 	// Process EdDSA coins using the unified handler pattern
 	eddsaCoins := GetEnhancedEdDSACoins()
@@ -258,6 +290,10 @@ func (p *EdDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 
 	for _, coin := range eddsaCoins {
 		log.Printf("Processing EdDSA coin: %s", coin.Name)
+		Debug().Emit(DEBUG, "EdDSA", "Processing EdDSA coin", map[string]any{
+			"coin":        coin.Name,
+			"derive_path": coin.DerivePath,
+		})
 
 		// Check if the coin has an EdDSA handler
 		if coin.EdDSAHandler == nil {
@@ -285,6 +321,10 @@ func (p *EdDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 // processKeysGeneric implements the generic processing pipeline
 func processKeysGeneric(threshold int, allSecrets []utils.TempLocalState, config PipelineConfig) (*ProcessingResult, error) {
 	log.Printf("Processing %s keys for JSON with threshold: %d, number of secrets: %d", config.KeyTypeName, threshold, len(allSecrets))
+	Debug().Emit(INFO, config.KeyTypeName, "Key processing started", map[string]any{
+		"threshold":    threshold,
+		"secret_count": len(allSecrets),
+	})
 
 	// Step 1: Validate input parameters
 	if err := validateThresholdAndSecrets(threshold, allSecrets); err != nil {

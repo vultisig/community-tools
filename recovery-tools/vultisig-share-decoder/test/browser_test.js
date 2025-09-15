@@ -265,6 +265,78 @@ async function testEnhancedConfigRegistry() {
     }
 }
 
+// Test 5: DKLS Dual WASM Module Architecture
+async function testDKLSDualModuleSupport() {
+    console.log("\n🔷 Test 5: DKLS Dual WASM Module Architecture");
+    console.log("Testing both ECDSA and EdDSA WASM modules for DKLS processing...");
+    
+    try {
+        // Check if both WASM modules are loaded
+        if (!window.vsWasmModule) {
+            throw new Error("vsWasmModule not available - ECDSA support missing");
+        }
+        if (!window.vsSchnorrWasmModule) {
+            throw new Error("vsSchnorrWasmModule not available - EdDSA support missing");
+        }
+        
+        console.log("✅ Both vsWasmModule and vsSchnorrWasmModule are available");
+        
+        // Check required ECDSA classes
+        const ecdsaClasses = ['Keyshare', 'KeyExportSession', 'Message'];
+        for (const className of ecdsaClasses) {
+            if (!window.vsWasmModule[className]) {
+                throw new Error(`ECDSA class ${className} not available in vsWasmModule`);
+            }
+        }
+        
+        console.log(`✅ All ECDSA classes available: ${ecdsaClasses.join(', ')}`);
+        
+        // Check required EdDSA classes
+        const eddsaClasses = ['Keyshare', 'KeyExportSession', 'Message', 'SignSession', 'KeygenSession'];
+        for (const className of eddsaClasses) {
+            if (!window.vsSchnorrWasmModule[className]) {
+                throw new Error(`EdDSA class ${className} not available in vsSchnorrWasmModule`);
+            }
+        }
+        
+        console.log(`✅ All EdDSA classes available: ${eddsaClasses.join(', ')}`);
+        
+        // Verify algorithm detection functions were removed (new architecture)
+        if (typeof window.getVsModule === 'function') {
+            throw new Error("getVsModule function should have been removed (algorithm detection no longer used)");
+        }
+        
+        if (typeof window.detectAlgorithmFromVault === 'function') {
+            throw new Error("detectAlgorithmFromVault function should have been removed (algorithm detection no longer used)");
+        }
+        
+        console.log("✅ Algorithm detection functions properly removed");
+        
+        // Test that both modules can create keyshares (simulated)
+        const testData = new Uint8Array([1, 2, 3, 4]); // Dummy data for testing
+        
+        // We can't test actual keyshare creation without valid DKLS data,
+        // but we can verify the classes exist and are constructors
+        if (typeof window.vsWasmModule.Keyshare.fromBytes !== 'function') {
+            throw new Error("ECDSA Keyshare.fromBytes not available");
+        }
+        
+        if (typeof window.vsSchnorrWasmModule.Keyshare.fromBytes !== 'function') {
+            throw new Error("EdDSA Keyshare.fromBytes not available");
+        }
+        
+        console.log("✅ Both ECDSA and EdDSA Keyshare.fromBytes methods available");
+        
+        console.log("✅ DKLS dual module architecture verified!");
+        
+        return { success: true };
+        
+    } catch (error) {
+        console.error("❌ Test 5 failed:", error.message);
+        return { success: false, error: error.message };
+    }
+}
+
 // Main test runner
 async function runAllTests() {
     console.log("🧪 Enhanced Configuration System - Comprehensive Test Suite");
@@ -274,14 +346,15 @@ async function runAllTests() {
         test1: await testGetSupportedCoins(),
         test2: await testECDSAKeyDerivation(),
         test3: await testEdDSAKeyDerivation(),
-        test4: await testEnhancedConfigRegistry()
+        test4: await testEnhancedConfigRegistry(),
+        test5: await testDKLSDualModuleSupport()
     };
     
     console.log("\n📊 Test Results Summary:");
     console.log("=" * 40);
     
     let passedTests = 0;
-    const totalTests = 4;
+    const totalTests = 5;
     
     for (const [testName, result] of Object.entries(results)) {
         const status = result.success ? "✅ PASS" : "❌ FAIL";

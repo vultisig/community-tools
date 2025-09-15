@@ -124,6 +124,10 @@ func (s *GG20Strategy) ProcessFiles(ctx FileProcessingContext, result *ProcessRe
 
 	threshold := len(allSecret)
 	log.Printf("Using threshold %d for %d secrets", threshold, len(allSecret))
+	Debug().Emit(INFO, "GG20", "Threshold and secrets configured", map[string]any{
+		"threshold":    threshold,
+		"secret_count": len(allSecret),
+	})
 
 	// Process ECDSA keys with proper structuring
 	if len(allSecret) > 0 {
@@ -149,6 +153,9 @@ func (s *GG20Strategy) ProcessFiles(ctx FileProcessingContext, result *ProcessRe
 		if err != nil {
 			// EdDSA processing might fail if no EdDSA keys present, which is okay
 			log.Printf("EdDSA processing failed (this is okay if no EdDSA keys present): %v", err)
+			Debug().Emit(WARN, "EdDSA", "EdDSA processing failed - may be expected if no EdDSA keys present", map[string]any{
+				"error": err.Error(),
+			})
 		} else {
 			result.CoinKeys = append(result.CoinKeys, eddsaKeys...)
 
@@ -348,6 +355,9 @@ func (s *DKLSStrategy) ProcessFiles(ctx FileProcessingContext, result *ProcessRe
 	}
 
 	log.Printf("DKLS processing completed successfully with %d coin keys", len(result.CoinKeys))
+	Debug().Emit(INFO, "DKLS", "Processing completed successfully", map[string]any{
+		"coin_keys_generated": len(result.CoinKeys),
+	})
 
 	return nil
 }
@@ -400,6 +410,9 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
 		ecdsaResult, err := processor.ProcessTSSKey(ecdsaPrivateKeyBigInt, syntheticSecrets)
 		if err != nil {
 			log.Printf("ECDSA processing failed: %v", err)
+			Debug().Emit(ERROR, "ECDSA", "ECDSA processing failed", map[string]any{
+				"error": err.Error(),
+			})
 		} else {
 			result.RootKeyInfo = ecdsaResult.RootKeyInfo
 			result.PublicKeys.ECDSA = ecdsaResult.RootKeyInfo.HexPubKeyECDSA
@@ -407,33 +420,35 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
 		}
 	}
 
-	// Process EdDSA keys - NOW IMPLEMENTED with proper EdDSA private key extraction
-	if ctx.EdDSAPublicKeyHex != "" && ctx.EdDSAPrivateKeyHex != "" {
-		log.Printf("✅ DKLS EdDSA processing - both EdDSA public and private keys available")
-
+	// Process EdDSA keys if we have the required data (matching ECDSA pattern)
+	if ctx.EdDSAPrivateKeyHex != "" {
 		eddsaPrivateKeyBytes, err := hex.DecodeString(ctx.EdDSAPrivateKeyHex)
 		if err != nil {
-			log.Printf("❌ Failed to decode EdDSA private key: %v", err)
-		} else {
-			// Convert to big.Int for compatibility with processor
-			eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
+			return fmt.Errorf("failed to decode EdDSA private key: %w", err)
+		}
 
-			// Use the EdDSA processor directly (bypass TSS reconstruction)
-			processor := &EdDSAKeyProcessor{}
-			eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, syntheticSecrets)
-			if err != nil {
-				log.Printf("❌ EdDSA processing failed: %v", err)
-			} else {
-				log.Printf("✅ EdDSA processing successful - EdDSA chains (Solana, Sui, TON) now available!")
-				result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-				result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
+		// Convert to big.Int for compatibility with processor
+		eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
+
+		// Use the EdDSA processor directly (bypass TSS reconstruction)
+		processor := &EdDSAKeyProcessor{}
+		eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, nil)
+		if err != nil {
+			log.Printf("EdDSA processing failed: %v", err)
+			Debug().Emit(ERROR, "EdDSA", "EdDSA processing failed", map[string]any{
+				"error": err.Error(),
+			})
+		} else {
+			// Add EdDSA info to rootKeyInfo similar to ECDSA
+			if result.RootKeyInfo != nil {
+				result.RootKeyInfo.HexPubKeyEdDSA = ctx.EdDSAPublicKeyHex
+				result.RootKeyInfo.HexPrivKeyEdDSA = ctx.EdDSAPrivateKeyHex
 			}
+			result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
+			result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
 		}
 	} else if ctx.EdDSAPublicKeyHex != "" {
-		log.Printf("⚠️  DKLS EdDSA public key available but private key missing - EdDSA extraction may have failed")
 		result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-	} else {
-		log.Printf("ℹ️  No EdDSA keys in DKLS vault - EdDSA chains (Solana, Sui, TON) not available")
 	}
 
 	return nil
@@ -442,6 +457,10 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
 // processFileContentGeneric implements the unified processing pipeline
 func processFileContentGeneric(ctx FileProcessingContext, config FileProcessingConfig) (ProcessResult, error) {
 	log.Printf("Processing files using %s strategy with %d files", config.StrategyName, len(ctx.FileInfos))
+	Debug().Emit(INFO, "PIPELINE", "Processing started", map[string]any{
+		"strategy":   config.StrategyName,
+		"file_count": len(ctx.FileInfos),
+	})
 
 	// Step 1: Set up logging
 	setupLogging()
@@ -502,6 +521,7 @@ func decodeAndExtractLocalState(fileContent []byte, password string, source util
 			// Check if this error indicates a DKLS vault
 			if strings.Contains(err.Error(), "DKLS vault detected") {
 				log.Printf("DKLS vault detected during content parsing")
+				Debug().Emit(INFO, "PARSER", "DKLS vault detected", nil)
 				return nil, true, fmt.Errorf("DKLS vault detected: %w", err)
 			}
 			return nil, false, fmt.Errorf("error parsing content: %w", err)
@@ -515,6 +535,7 @@ func decodeAndExtractLocalState(fileContent []byte, password string, source util
 			// Check if this error indicates a DKLS vault
 			if strings.Contains(err.Error(), "DKLS vault detected") {
 				log.Printf("DKLS vault detected during vault container parsing")
+				Debug().Emit(INFO, "PARSER", "DKLS vault detected in container", nil)
 				return nil, true, fmt.Errorf("DKLS vault detected: %w", err)
 			}
 			return nil, false, fmt.Errorf("error processing vault container: %w", err)

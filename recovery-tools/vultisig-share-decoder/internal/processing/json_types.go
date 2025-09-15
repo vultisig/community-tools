@@ -1,5 +1,35 @@
 package processing
 
+// DebugLevel represents the severity level of a debug event
+type DebugLevel string
+
+const (
+	DEBUG DebugLevel = "DEBUG"
+	INFO  DebugLevel = "INFO"
+	WARN  DebugLevel = "WARN"
+	ERROR DebugLevel = "ERROR"
+)
+
+// DebugEvent represents a single debug event captured during processing
+type DebugEvent struct {
+	Timestamp string         `json:"timestamp"`
+	Level     DebugLevel     `json:"level"`
+	Category  string         `json:"category"`
+	Message   string         `json:"message"`
+	Phase     string         `json:"phase,omitempty"`
+	Share     string         `json:"share,omitempty"`
+	Fields    map[string]any `json:"fields,omitempty"`
+}
+
+// DebugPayload represents the complete debug information for a processing session
+type DebugPayload struct {
+	Enabled    bool         `json:"enabled"`
+	Level      DebugLevel   `json:"level"`
+	Categories []string     `json:"categories"`
+	Dropped    int          `json:"dropped"`
+	Events     []DebugEvent `json:"events"`
+}
+
 // CoinKeyInfo represents key information for a specific cryptocurrency
 type CoinKeyInfo struct {
 	Name            string `json:"name"`
@@ -31,6 +61,8 @@ type PublicKeyInfo struct {
 type RootKeyInfo struct {
 	HexPubKeyECDSA  string `json:"hexPubKeyECDSA"`
 	HexPrivKeyECDSA string `json:"hexPrivKeyECDSA"`
+	HexPubKeyEdDSA  string `json:"hexPubKeyEdDSA,omitempty"`
+	HexPrivKeyEdDSA string `json:"hexPrivKeyEdDSA,omitempty"`
 	ChainCode       string `json:"chainCode"`
 	ExtendedPrivKey string `json:"extendedPrivateKey"`
 }
@@ -43,6 +75,7 @@ type ProcessResult struct {
 	PublicKeys   PublicKeyInfo  `json:"publicKeys"`
 	RootKeyInfo  *RootKeyInfo   `json:"rootKeyInfo,omitempty"`
 	CoinKeys     []CoinKeyInfo  `json:"coinKeys"`
+	Debug        *DebugPayload  `json:"debug,omitempty"`
 }
 
 // DeriveKeysResult represents the result from deriving keys for all supported coins
@@ -52,6 +85,7 @@ type DeriveKeysResult struct {
 	RootKeyInfo RootKeyInfo   `json:"rootKeyInfo"`
 	ECDSAKeys   []CoinKeyInfo `json:"ecdsaKeys"`
 	EdDSAKeys   []CoinKeyInfo `json:"eddsaKeys"`
+	Debug       *DebugPayload `json:"debug,omitempty"`
 }
 
 // CoinSupportInfo represents information about a supported coin

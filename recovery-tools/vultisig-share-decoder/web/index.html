@@ -82,10 +82,75 @@
             </section>
 
             <section class="debug-section">
-                <h3 class="toggle-header" onclick="toggleSection('debugOutput')">
-                    Debug Output <span class="toggle-arrow">▼</span>
+                <h3 class="toggle-header" onclick="toggleSection('debugConfig')">
+                    Debug Configuration <span class="toggle-arrow">▼</span>
                 </h3>
-                <pre id="debugOutput" class="debug-output content" style="display: none;"></pre>
+                <div id="debugConfig" class="content debug-config-content" style="display: none;">
+                    <div class="debug-controls">
+                        <label class="debug-checkbox">
+                            <input type="checkbox" id="enableStructuredDebug" onchange="updateDebugConfig()">
+                            Enable Structured Debug
+                        </label>
+                        
+                        <div class="debug-options">
+                            <div class="debug-option">
+                                <label for="debugLevel">Level:</label>
+                                <select id="debugLevel" onchange="updateDebugConfig()">
+                                    <option value="ERROR">Error</option>
+                                    <option value="WARN">Warning</option>
+                                    <option value="INFO" selected>Info</option>
+                                    <option value="DEBUG">Debug</option>
+                                </select>
+                            </div>
+                            
+                            <div class="debug-option">
+                                <label for="debugCategories">Categories:</label>
+                                <select id="debugCategories" multiple onchange="updateDebugConfig()">
+                                    <option value="PIPELINE">Pipeline</option>
+                                    <option value="PARSER">Parser</option>
+                                    <option value="DKLS">DKLS</option>
+                                    <option value="GG20">GG20</option>
+                                    <option value="ECDSA">ECDSA</option>
+                                    <option value="EdDSA">EdDSA</option>
+                                    <option value="COIN">Coin</option>
+                                    <option value="WASM">WASM</option>
+                                </select>
+                            </div>
+                            
+                            <label class="sensitive-checkbox">
+                                <input type="checkbox" id="includeSensitive" onchange="updateDebugConfig()">
+                                Include Sensitive Data
+                            </label>
+                        </div>
+                        
+                        <label class="verbose-checkbox">
+                            <input type="checkbox" id="verboseMode" onchange="toggleVerboseMode()">
+                            Legacy Verbose Mode
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="debug-section">
+                <div class="debug-header">
+                    <h3 class="toggle-header" onclick="toggleSection('debugTabs')">
+                        Debug Output <span class="toggle-arrow">▼</span>
+                    </h3>
+                </div>
+                <div id="debugTabs" class="debug-tabs-container content" style="display: none;">
+                    <div class="debug-tabs">
+                        <button class="debug-tab active" onclick="switchDebugTab('info')">INFO</button>
+                        <button class="debug-tab" onclick="switchDebugTab('warn')">WARN</button>
+                        <button class="debug-tab" onclick="switchDebugTab('error')">ERROR</button>
+                        <button class="debug-tab" onclick="switchDebugTab('debug')">DEBUG</button>
+                    </div>
+                    <div class="debug-content">
+                        <pre id="debugOutput-info" class="debug-output active"></pre>
+                        <pre id="debugOutput-warn" class="debug-output"></pre>
+                        <pre id="debugOutput-error" class="debug-output"></pre>
+                        <pre id="debugOutput-debug" class="debug-output"></pre>
+                    </div>
+                </div>
             </section>
 
             <section class="results-section debug-section">
