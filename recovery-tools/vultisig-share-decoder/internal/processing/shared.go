@@ -407,18 +407,12 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                 }
         }
 
-        // Process EdDSA keys - NOW IMPLEMENTED with proper EdDSA private key extraction
-        debugInfo := fmt.Sprintf("DEBUG_EdDSA_PubLen:%d_PrivLen:%d", len(ctx.EdDSAPublicKeyHex), len(ctx.EdDSAPrivateKeyHex))
-        
+        // Process EdDSA keys
         if ctx.EdDSAPublicKeyHex != "" && ctx.EdDSAPrivateKeyHex != "" {
                 eddsaPrivateKeyBytes, err := hex.DecodeString(ctx.EdDSAPrivateKeyHex)
                 if err != nil {
-                        debugInfo += "_DECODE_FAILED:" + err.Error()
                         result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                 } else {
-                        debugInfo += "_DECODE_SUCCESS"
-                        debugInfo += "_PRIVKEY:" + ctx.EdDSAPrivateKeyHex // Add actual private key for debugging
-                        
                         // Add EdDSA info to rootKeyInfo similar to ECDSA
                         if result.RootKeyInfo != nil {
                                 result.RootKeyInfo.HexPubKeyEdDSA = ctx.EdDSAPublicKeyHex
@@ -432,26 +426,14 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                         processor := &EdDSAKeyProcessor{}
                         eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, syntheticSecrets)
                         if err != nil {
-                                debugInfo += "_PROCESSING_FAILED:" + err.Error()
                                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                         } else {
-                                debugInfo += fmt.Sprintf("_PROCESSING_SUCCESS_COINS:%d", len(eddsaResult.CoinKeys))
                                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                                 result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
                         }
                 }
         } else if ctx.EdDSAPublicKeyHex != "" {
-                debugInfo += "_PUBLIC_ONLY"
                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
-        } else {
-                debugInfo += "_NO_KEYS"
-        }
-        
-        // Add debug info to error field for visibility
-        if result.Error == "" {
-                result.Error = debugInfo
-        } else {
-                result.Error = result.Error + " | " + debugInfo
         }
 
         return nil
