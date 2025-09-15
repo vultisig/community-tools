@@ -141,6 +141,11 @@ func reconstructTSSKey(vssShares vss.Shares, threshold int, curveType CurveType)
         }
 
         log.Printf("Attempting to reconstruct %s key with threshold %d from %d shares", curveTypeName, threshold, len(vssShares))
+        Debug().Emit(INFO, "ECDSA", "Starting key reconstruction", map[string]any{
+                "curve_type": curveTypeName,
+                "threshold": threshold,
+                "share_count": len(vssShares),
+        })
         tssPrivateKey, err := vssShares[:threshold].ReConstruct(curve)
         if err != nil {
                 return nil, fmt.Errorf("failed to reconstruct %s private key: %w", curveTypeName, err)
@@ -209,9 +214,17 @@ func (p *ECDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 
         for _, coinConfig := range enhancedCoins {
                 log.Printf("Processing %s key derivation", coinConfig.Name)
+                Debug().Emit(DEBUG, "COIN", "Deriving coin key", map[string]any{
+                        "coin": coinConfig.Name,
+                        "derive_path": coinConfig.DerivePath,
+                })
                 key, err := GetDerivedPrivateKeys(coinConfig.DerivePath, extendedPrivateKey)
                 if err != nil {
                         log.Printf("Error deriving private key for %s: %v", coinConfig.Name, err)
+                        Debug().Emit(ERROR, "COIN", "Failed to derive private key", map[string]any{
+                                "coin": coinConfig.Name,
+                                "error": err.Error(),
+                        })
                         continue
                 }
 
@@ -269,6 +282,10 @@ func (p *EdDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 
         for _, coin := range eddsaCoins {
                 log.Printf("Processing EdDSA coin: %s", coin.Name)
+                Debug().Emit(DEBUG, "EdDSA", "Processing EdDSA coin", map[string]any{
+                        "coin": coin.Name,
+                        "derive_path": coin.DerivePath,
+                })
 
                 // Check if the coin has an EdDSA handler
                 if coin.EdDSAHandler == nil {
@@ -296,6 +313,10 @@ func (p *EdDSAKeyProcessor) ProcessTSSKey(tssPrivateKey *big.Int, allSecrets []u
 // processKeysGeneric implements the generic processing pipeline
 func processKeysGeneric(threshold int, allSecrets []utils.TempLocalState, config PipelineConfig) (*ProcessingResult, error) {
         log.Printf("Processing %s keys for JSON with threshold: %d, number of secrets: %d", config.KeyTypeName, threshold, len(allSecrets))
+        Debug().Emit(INFO, config.KeyTypeName, "Key processing started", map[string]any{
+                "threshold": threshold,
+                "secret_count": len(allSecrets),
+        })
 
         // Step 1: Validate input parameters
         if err := validateThresholdAndSecrets(threshold, allSecrets); err != nil {

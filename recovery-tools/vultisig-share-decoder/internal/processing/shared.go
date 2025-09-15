@@ -124,6 +124,10 @@ func (s *GG20Strategy) ProcessFiles(ctx FileProcessingContext, result *ProcessRe
 
         threshold := len(allSecret)
         log.Printf("Using threshold %d for %d secrets", threshold, len(allSecret))
+        Debug().Emit(INFO, "GG20", "Threshold and secrets configured", map[string]any{
+                "threshold": threshold,
+                "secret_count": len(allSecret),
+        })
 
         // Process ECDSA keys with proper structuring
         if len(allSecret) > 0 {
@@ -149,6 +153,9 @@ func (s *GG20Strategy) ProcessFiles(ctx FileProcessingContext, result *ProcessRe
                 if err != nil {
                         // EdDSA processing might fail if no EdDSA keys present, which is okay
                         log.Printf("EdDSA processing failed (this is okay if no EdDSA keys present): %v", err)
+                        Debug().Emit(WARN, "EdDSA", "EdDSA processing failed - may be expected if no EdDSA keys present", map[string]any{
+                                "error": err.Error(),
+                        })
                 } else {
                         result.CoinKeys = append(result.CoinKeys, eddsaKeys...)
 
@@ -348,6 +355,9 @@ func (s *DKLSStrategy) ProcessFiles(ctx FileProcessingContext, result *ProcessRe
         }
 
         log.Printf("DKLS processing completed successfully with %d coin keys", len(result.CoinKeys))
+        Debug().Emit(INFO, "DKLS", "Processing completed successfully", map[string]any{
+                "coin_keys_generated": len(result.CoinKeys),
+        })
 
         return nil
 }
@@ -400,6 +410,9 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                 ecdsaResult, err := processor.ProcessTSSKey(ecdsaPrivateKeyBigInt, syntheticSecrets)
                 if err != nil {
                         log.Printf("ECDSA processing failed: %v", err)
+                        Debug().Emit(ERROR, "ECDSA", "ECDSA processing failed", map[string]any{
+                                "error": err.Error(),
+                        })
                 } else {
                         result.RootKeyInfo = ecdsaResult.RootKeyInfo
                         result.PublicKeys.ECDSA = ecdsaResult.RootKeyInfo.HexPubKeyECDSA
@@ -442,6 +455,10 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
 // processFileContentGeneric implements the unified processing pipeline
 func processFileContentGeneric(ctx FileProcessingContext, config FileProcessingConfig) (ProcessResult, error) {
         log.Printf("Processing files using %s strategy with %d files", config.StrategyName, len(ctx.FileInfos))
+        Debug().Emit(INFO, "PIPELINE", "Processing started", map[string]any{
+                "strategy": config.StrategyName,
+                "file_count": len(ctx.FileInfos),
+        })
 
         // Step 1: Set up logging
         setupLogging()
@@ -502,6 +519,7 @@ func decodeAndExtractLocalState(fileContent []byte, password string, source util
                         // Check if this error indicates a DKLS vault
                         if strings.Contains(err.Error(), "DKLS vault detected") {
                                 log.Printf("DKLS vault detected during content parsing")
+                                Debug().Emit(INFO, "PARSER", "DKLS vault detected", nil)
                                 return nil, true, fmt.Errorf("DKLS vault detected: %w", err)
                         }
                         return nil, false, fmt.Errorf("error parsing content: %w", err)
@@ -515,6 +533,7 @@ func decodeAndExtractLocalState(fileContent []byte, password string, source util
                         // Check if this error indicates a DKLS vault
                         if strings.Contains(err.Error(), "DKLS vault detected") {
                                 log.Printf("DKLS vault detected during vault container parsing")
+                                Debug().Emit(INFO, "PARSER", "DKLS vault detected in container", nil)
                                 return nil, true, fmt.Errorf("DKLS vault detected: %w", err)
                         }
                         return nil, false, fmt.Errorf("error processing vault container: %w", err)
