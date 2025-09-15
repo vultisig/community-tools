@@ -419,6 +419,7 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                         eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
 
                         // Use the EdDSA processor directly (bypass TSS reconstruction)
+                        log.Printf("🔍 Starting EdDSA processor with private key length: %d", eddsaPrivateKeyBigInt.BitLen())
                         processor := &EdDSAKeyProcessor{}
                         eddsaResult, err := processor.ProcessTSSKey(eddsaPrivateKeyBigInt, syntheticSecrets)
                         if err != nil {
@@ -426,9 +427,16 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                                 // Still set the public key even if coin processing fails
                                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                         } else {
-                                log.Printf("✅ EdDSA processing successful - EdDSA chains (Solana, Sui, TON) now available!")
+                                log.Printf("✅ EdDSA processing successful - generated %d coin keys", len(eddsaResult.CoinKeys))
                                 result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
+                                
+                                // Debug: log each EdDSA coin key before adding
+                                for i, coinKey := range eddsaResult.CoinKeys {
+                                        log.Printf("🔍 EdDSA coin %d: %s", i, coinKey.Name)
+                                }
+                                
                                 result.CoinKeys = append(result.CoinKeys, eddsaResult.CoinKeys...)
+                                log.Printf("✅ Total coin keys after EdDSA: %d", len(result.CoinKeys))
                         }
                 }
         } else if ctx.EdDSAPublicKeyHex != "" {
