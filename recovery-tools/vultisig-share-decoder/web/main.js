@@ -1015,6 +1015,30 @@ function displayRootKeyInfo(rootKeyInfo) {
         `;
     }
     
+    if (rootKeyInfo.hexPubKeyEdDSA || rootKeyInfo.hex_pub_key_eddsa) {
+        html += `
+            <div class="key-item">
+                <div class="key-label">EdDSA Root Public Key</div>
+                <div class="key-value copyable" onclick="copyToClipboard('${rootKeyInfo.hexPubKeyEdDSA || rootKeyInfo.hex_pub_key_eddsa}', event)">
+                    ${rootKeyInfo.hexPubKeyEdDSA || rootKeyInfo.hex_pub_key_eddsa}
+                    <span class="copy-icon">📋</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    if (rootKeyInfo.hexPrivKeyEdDSA || rootKeyInfo.hex_priv_key_eddsa) {
+        html += `
+            <div class="key-item sensitive">
+                <div class="key-label">EdDSA Root Private Key</div>
+                <div class="key-value copyable" onclick="copyToClipboard('${rootKeyInfo.hexPrivKeyEdDSA || rootKeyInfo.hex_priv_key_eddsa}', event)">
+                    ${rootKeyInfo.hexPrivKeyEdDSA || rootKeyInfo.hex_priv_key_eddsa}
+                    <span class="copy-icon">📋</span>
+                </div>
+            </div>
+        `;
+    }
+    
     document.getElementById('rootKeyContentInner').innerHTML = html;
     document.getElementById('rootKeySection').style.display = 'block';
 }
