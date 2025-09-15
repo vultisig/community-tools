@@ -210,23 +210,93 @@ h1 {
 
 .debug-controls {
     display: flex;
+    flex-direction: column;
     gap: 1rem;
-    align-items: center;
+    padding: 1rem;
+    background-color: rgba(169, 169, 233, 0.1);
+    border-radius: var(--border-radius);
+    border: 1px solid rgba(169, 169, 233, 0.2);
 }
 
-.verbose-checkbox {
+.debug-config-group {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr auto;
+    gap: 0.75rem 1rem;
+    align-items: center;
+    padding: 1rem;
+    background-color: rgba(0, 255, 204, 0.05);
+    border-radius: var(--border-radius);
+    border-left: 3px solid var(--primary-color);
+}
+
+.debug-config-group label {
+    color: var(--text-color);
+    font-size: 0.9rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.debug-config-group select {
+    background-color: var(--secondary-color);
+    border: 1px solid rgba(169, 169, 233, 0.3);
+    border-radius: 4px;
+    color: var(--text-color);
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    min-width: 120px;
+}
+
+.debug-config-group select[multiple] {
+    min-height: 80px;
+    min-width: 200px;
+}
+
+.debug-config-group select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(0, 255, 204, 0.2);
+}
+
+.debug-checkbox,
+.sensitive-checkbox {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     color: var(--text-color);
     font-size: 0.9rem;
     cursor: pointer;
+    grid-column: span 2;
+}
+
+.debug-checkbox input[type="checkbox"],
+.sensitive-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--primary-color);
+}
+
+.sensitive-checkbox {
+    color: var(--error-color);
+    font-weight: 500;
+}
+
+.verbose-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--accent-color);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.5rem;
+    border-top: 1px solid rgba(169, 169, 233, 0.2);
+    margin-top: 0.5rem;
+    padding-top: 1rem;
 }
 
 .verbose-checkbox input[type="checkbox"] {
     width: 16px;
     height: 16px;
-    accent-color: var(--primary-color);
+    accent-color: var(--accent-color);
 }
 
 /* Debug tabs */
