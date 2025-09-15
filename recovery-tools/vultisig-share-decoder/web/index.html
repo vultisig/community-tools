@@ -88,35 +88,45 @@
                     </h3>
                     <div class="debug-controls">
                         <div class="debug-config-group">
-                            <label class="debug-checkbox">
-                                <input type="checkbox" id="enableStructuredDebug" onchange="updateDebugConfig()">
-                                Enable Structured Debug
-                            </label>
+                            <div class="debug-config-row">
+                                <label class="debug-checkbox">
+                                    <input type="checkbox" id="enableStructuredDebug" onchange="updateDebugConfig()">
+                                    Enable Structured Debug
+                                </label>
+                            </div>
                             
-                            <label for="debugLevel">Level:</label>
-                            <select id="debugLevel" onchange="updateDebugConfig()">
-                                <option value="ERROR">Error</option>
-                                <option value="WARN">Warning</option>
-                                <option value="INFO" selected>Info</option>
-                                <option value="DEBUG">Debug</option>
-                            </select>
+                            <div class="debug-config-row">
+                                <div class="debug-config-item">
+                                    <label for="debugLevel">Debug Level:</label>
+                                    <select id="debugLevel" onchange="updateDebugConfig()">
+                                        <option value="ERROR">Error</option>
+                                        <option value="WARN">Warning</option>
+                                        <option value="INFO" selected>Info</option>
+                                        <option value="DEBUG">Debug</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="debug-config-item">
+                                    <label for="debugCategories">Categories (hold Ctrl/Cmd to select multiple):</label>
+                                    <select id="debugCategories" multiple onchange="updateDebugConfig()">
+                                        <option value="PIPELINE">Pipeline</option>
+                                        <option value="PARSER">Parser</option>
+                                        <option value="DKLS">DKLS</option>
+                                        <option value="GG20">GG20</option>
+                                        <option value="ECDSA">ECDSA</option>
+                                        <option value="EdDSA">EdDSA</option>
+                                        <option value="COIN">Coin</option>
+                                        <option value="WASM">WASM</option>
+                                    </select>
+                                </div>
+                            </div>
                             
-                            <label for="debugCategories">Categories:</label>
-                            <select id="debugCategories" multiple onchange="updateDebugConfig()">
-                                <option value="PIPELINE">Pipeline</option>
-                                <option value="PARSER">Parser</option>
-                                <option value="DKLS">DKLS</option>
-                                <option value="GG20">GG20</option>
-                                <option value="ECDSA">ECDSA</option>
-                                <option value="EdDSA">EdDSA</option>
-                                <option value="COIN">Coin</option>
-                                <option value="WASM">WASM</option>
-                            </select>
-                            
-                            <label class="sensitive-checkbox">
-                                <input type="checkbox" id="includeSensitive" onchange="updateDebugConfig()">
-                                Include Sensitive Data
-                            </label>
+                            <div class="debug-config-row">
+                                <label class="sensitive-checkbox">
+                                    <input type="checkbox" id="includeSensitive" onchange="updateDebugConfig()">
+                                    Include Sensitive Data (⚠️ Shows private keys in debug output)
+                                </label>
+                            </div>
                         </div>
                         
                         <label class="verbose-checkbox">
