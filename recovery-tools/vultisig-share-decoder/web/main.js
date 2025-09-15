@@ -724,10 +724,29 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         // Now call the new ProcessDKLSFileContentJSON function with both extracted keys
         debugLog("Calling ProcessDKLSFileContentJSON function with both ECDSA and EdDSA keys...");
         
+        // DEBUGGING: Log all parameters before WASM call
+        debugLog("=== DEBUGGING WASM PARAMETERS ===");
+        debugLog(`ECDSA privateKeyHex: ${privateKeyHex ? `${privateKeyHex.substring(0, 16)}...` : 'EMPTY'} (length: ${privateKeyHex.length})`);
+        debugLog(`ECDSA publicKeyHex: ${publicKeyHex ? `${publicKeyHex.substring(0, 16)}...` : 'EMPTY'} (length: ${publicKeyHex.length})`);
+        debugLog(`rootChainCodeHex: ${rootChainCodeHex ? `${rootChainCodeHex.substring(0, 16)}...` : 'EMPTY'} (length: ${rootChainCodeHex.length})`);
+        debugLog(`EdDSA publicKey (from vault): ${eddsaPublicKey ? `${eddsaPublicKey.substring(0, 16)}...` : 'EMPTY'} (length: ${eddsaPublicKey.length})`);
+        debugLog(`EdDSA privateKeyHex (extracted): ${eddsaPrivateKeyHex ? `${eddsaPrivateKeyHex.substring(0, 16)}...` : 'EMPTY'} (length: ${eddsaPrivateKeyHex.length})`);
+        debugLog(`EdDSA processing failed flag: ${eddsaProcessingFailed}`);
+        debugLog("=== END DEBUGGING PARAMETERS ===");
+        
         // Check if the new JSON function is available
         if (!window.ProcessDKLSFileContentJSON) {
             throw new Error("ProcessDKLSFileContentJSON function not available. Please reload the page.");
         }
+
+        debugLog("Calling ProcessDKLSFileContentJSON with parameters:");
+        debugLog(`  - files: ${files.length} files`);
+        debugLog(`  - passwords: ${passwords.length} passwords`);
+        debugLog(`  - fileNames: ${fileNames.length} filenames`);
+        debugLog(`  - privateKeyHex: ${privateKeyHex ? 'present' : 'MISSING'}`);
+        debugLog(`  - rootChainCodeHex: ${rootChainCodeHex ? 'present' : 'MISSING'}`);
+        debugLog(`  - eddsaPublicKey: ${eddsaPublicKey ? 'present' : 'MISSING'}`);
+        debugLog(`  - eddsaPrivateKeyHex: ${eddsaPrivateKeyHex ? 'present' : 'MISSING'}`);
 
         const jsonResult = window.ProcessDKLSFileContentJSON(files, passwords, fileNames, privateKeyHex, rootChainCodeHex, eddsaPublicKey, eddsaPrivateKeyHex);
         debugLog(`ProcessDKLSFileContentJSON result: ${jsonResult}`);
