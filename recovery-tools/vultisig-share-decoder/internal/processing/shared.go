@@ -417,6 +417,14 @@ func processDKLSKeysWithUnifiedPipeline(ctx FileProcessingContext, result *Proce
                         result.PublicKeys.EdDSA = ctx.EdDSAPublicKeyHex
                 } else {
                         debugInfo += "_DECODE_SUCCESS"
+                        debugInfo += "_PRIVKEY:" + ctx.EdDSAPrivateKeyHex // Add actual private key for debugging
+                        
+                        // Add EdDSA info to rootKeyInfo similar to ECDSA
+                        if result.RootKeyInfo != nil {
+                                result.RootKeyInfo.HexPubKeyEdDSA = ctx.EdDSAPublicKeyHex
+                                result.RootKeyInfo.HexPrivKeyEdDSA = ctx.EdDSAPrivateKeyHex
+                        }
+                        
                         // Convert to big.Int for compatibility with processor
                         eddsaPrivateKeyBigInt := new(big.Int).SetBytes(eddsaPrivateKeyBytes)
 
