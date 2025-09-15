@@ -342,3 +342,86 @@ func TestEdDSAKeyProcessorWithSpecificKeys(t *testing.T) {
                 t.Logf("❌ Some addresses don't match - this demonstrates the DKLS EdDSA issue")
         }
 }
+
+// TestDKLSEdDSADirectHandlerApproach tests the DKLS fix using direct handler calls
+func TestDKLSEdDSADirectHandlerApproach(t *testing.T) {
+        // Same test keys as above
+        publicKeyHex := "20e368bf985efdc270500c6e9dc1159102323ff6eabab56f8fa9798e4ac0e2a9"
+        privateKeyHex := "733da00cb116e47317d8d0fdf2629f11500abd28a52a8dcbb3f8737f2a631e07"
+        
+        // Expected addresses for these keys
+        expectedAddresses := map[string]string{
+                "solana": "3DPAkfuk5bkh1c1Pg5GN57Gr6cSJsZHVBcJLTFMapmA8",
+                "ton":    "UQBzI_4nPOWMLkQFIjs7c76O43TGJhOrcJY7Zq5Yj-OWwKhm",
+                "sui":    "0xdf86603d1e457c5c95c18ff8dd9e921e349b7e587fdf6ac032b1b279bfe3241a",
+        }
+        
+        // Decode the keys
+        publicKeyBytes, err := hex.DecodeString(publicKeyHex)
+        if err != nil {
+                t.Fatalf("failed to decode public key: %v", err)
+        }
+        privateKeyBytes, err := hex.DecodeString(privateKeyHex)
+        if err != nil {
+                t.Fatalf("failed to decode private key: %v", err)
+        }
+        
+        t.Logf("Testing DKLS EdDSA fix with direct handler approach:")
+        t.Logf("  Public key:  %s", publicKeyHex)
+        t.Logf("  Private key: %s", privateKeyHex)
+        
+        // Simulate the DKLS processing approach with the fix
+        eddsaCoins := GetEnhancedEdDSACoins()
+        addressMatches := make(map[string]bool)
+        
+        for _, coin := range eddsaCoins {
+                t.Run(coin.Name, func(t *testing.T) {
+                        // Check if the coin has an EdDSA handler
+                        if coin.EdDSAHandler == nil {
+                                t.Fatalf("No EdDSA handler found for coin: %s", coin.Name)
+                        }
+                        
+                        // Use the EdDSA handler directly with the correct key bytes (DKLS fix)
+                        coinInfo, err := coin.EdDSAHandler(privateKeyBytes, publicKeyBytes, coin)
+                        if err != nil {
+                                t.Fatalf("Error processing DKLS EdDSA coin %s: %v", coin.Name, err)
+                        }
+                        
+                        expectedAddr, exists := expectedAddresses[coin.Name]
+                        if !exists {
+                                t.Fatalf("no expected address defined for %s", coin.Name)
+                        }
+                        
+                        matches := coinInfo.Address == expectedAddr
+                        addressMatches[coin.Name] = matches
+                        
+                        t.Logf("%s via DKLS direct handler approach:", coin.Name)
+                        t.Logf("  Generated: %s", coinInfo.Address)
+                        t.Logf("  Expected:  %s", expectedAddr)
+                        t.Logf("  Matches:   %t", matches)
+                        
+                        if !matches {
+                                t.Errorf("ADDRESS MISMATCH for %s:", coin.Name)
+                                t.Errorf("  Generated: %s", coinInfo.Address)
+                                t.Errorf("  Expected:  %s", expectedAddr)
+                        } else {
+                                t.Logf("✓ DKLS fix works correctly for %s", coin.Name)
+                        }
+                })
+        }
+        
+        // Verify all addresses match with the fix
+        allMatch := true
+        for coin, matches := range addressMatches {
+                if !matches {
+                        allMatch = false
+                        t.Errorf("DKLS fix failed for %s", coin)
+                }
+        }
+        
+        if allMatch {
+                t.Logf("✅ DKLS EdDSA fix works correctly - all addresses match expected values")
+        } else {
+                t.Fatalf("❌ DKLS fix failed - some addresses don't match")
+        }
+}
