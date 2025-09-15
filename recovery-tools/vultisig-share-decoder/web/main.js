@@ -177,8 +177,8 @@ window.checkBalance = checkBalance;
 window.copyToClipboard = copyToClipboard;
 
 // Parse and decrypt vault container following the reference implementation pattern
-async function parseAndDecryptVault(fileData, password) {
-    debugLog("Starting vault container parsing and decryption...");
+async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA") {
+    debugLog(`Starting vault container parsing and decryption for ${algorithm} algorithm...`);
 
     try {
         // Step 1: Try to decode as base64 if it's a string
@@ -230,29 +230,47 @@ async function parseAndDecryptVault(fileData, password) {
             }
         }
 
-        // Step 5: Parse the vault protobuf to extract keyshare
+        // Step 5: Parse the vault protobuf to extract vault info
         let vault;
         try {
             vault = parseVault(vaultData);
             debugLog(`Parsed vault: ${vault.name}, keyshares: ${vault.keyShares.length}, libType: ${vault.libType}`);
+            debugLog(`Vault ECDSA public key: ${vault.publicKeyEcdsa ? 'present' : 'not provided'}`);
+            debugLog(`Vault EdDSA public key: ${vault.publicKeyEddsa ? 'present' : 'not provided'}`);
         } catch (error) {
             debugLog(`Failed to parse vault protobuf: ${error.message}`);
             throw new Error("Could not parse vault protobuf");
         }
 
-        // Step 6: Extract keyshare data for DKLS
-        if (vault.keyShares.length === 0) {
-            throw new Error("No keyshares found in vault");
+        // Step 6: Sort keyshares by algorithm using the sortKeyshares function
+        const { ecdsaKeyshare, eddsaKeyshare } = sortKeyshares(vault);
+        
+        // Step 7: Select the appropriate keyshare based on the algorithm parameter
+        let selectedKeyshare = null;
+        if (algorithm === "ECDSA") {
+            selectedKeyshare = ecdsaKeyshare;
+            debugLog(`Selected ECDSA keyshare for extraction`);
+        } else if (algorithm === "EdDSA") {
+            selectedKeyshare = eddsaKeyshare;
+            debugLog(`Selected EdDSA keyshare for extraction`);
+        } else {
+            throw new Error(`Unsupported algorithm: ${algorithm}. Must be "ECDSA" or "EdDSA"`);
         }
 
-        // For DKLS, we need the keyshare string (which should be hex or base64 encoded)
-        const keyshareString = vault.keyShares[0].keyshare;
+        // Step 8: Validate that the requested algorithm keyshare exists
+        if (!selectedKeyshare) {
+            debugLog(`No ${algorithm} keyshare found in vault`);
+            throw new Error(`No ${algorithm} keyshare found in vault. Available algorithms: ${ecdsaKeyshare ? 'ECDSA ' : ''}${eddsaKeyshare ? 'EdDSA' : ''}`);
+        }
+
+        // Step 9: Extract keyshare data for the selected algorithm
+        const keyshareString = selectedKeyshare.keyshare;
         if (!keyshareString) {
-            throw new Error("No keyshare data found");
+            throw new Error(`No ${algorithm} keyshare data found`);
         }
 
-        debugLog(`Found keyshare string: ${keyshareString.length} characters`);
-        // debugLog(`Keyshare preview: ${keyshareString.substring(0, 100)}...`); // REMOVED: Sensitive data logging
+        debugLog(`Found ${algorithm} keyshare string: ${keyshareString.length} characters`);
+        debugLog(`${algorithm} keyshare public key: ${selectedKeyshare.publicKey}`);
 
         // Try to decode the keyshare string as hex first, then base64
         let keyshareData;
@@ -261,34 +279,32 @@ async function parseAndDecryptVault(fileData, password) {
                 // Hex encoded
                 const hexStr = keyshareString.trim();
                 keyshareData = new Uint8Array(hexStr.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
-                debugLog(`Decoded keyshare from hex, length: ${keyshareData.length}`);
+                debugLog(`Decoded ${algorithm} keyshare from hex, length: ${keyshareData.length}`);
             } else if (/^[A-Za-z0-9+/]+=*$/.test(keyshareString.trim())) {
                 // Base64 encoded
                 keyshareData = fromBase64(keyshareString.trim());
-                debugLog(`Decoded keyshare from base64, length: ${keyshareData.length}`);
+                debugLog(`Decoded ${algorithm} keyshare from base64, length: ${keyshareData.length}`);
             } else {
                 // Use raw string bytes as fallback
                 keyshareData = new TextEncoder().encode(keyshareString);
-                debugLog(`Using raw keyshare string bytes, length: ${keyshareData.length}`);
+                debugLog(`Using raw ${algorithm} keyshare string bytes, length: ${keyshareData.length}`);
             }
         } catch (e) {
             // Use raw string bytes as fallback
             keyshareData = new TextEncoder().encode(keyshareString);
-            debugLog(`Decoding failed, using raw string bytes, length: ${keyshareData.length}`);
+            debugLog(`Decoding failed, using raw ${algorithm} keyshare string bytes, length: ${keyshareData.length}`);
         }
 
         if (keyshareData.length < 100) {
-            throw new Error("Keyshare data too small, likely invalid");
+            throw new Error(`${algorithm} keyshare data too small, likely invalid`);
         }
 
-        debugLog(`Successfully extracted keyshare data, length: ${keyshareData.length} bytes`);
-        // debugLog(`First 32 bytes: ${Array.from(keyshareData.slice(0, 32)).map(b => b.toString(16).padStart(2, '0')).join(' ')}`); // REMOVED: Sensitive data logging
-
+        debugLog(`Successfully extracted ${algorithm} keyshare data, length: ${keyshareData.length} bytes`);
         return keyshareData;
 
     } catch (error) {
-        debugLog(`Vault parsing failed: ${error.message}`);
-        throw new Error(`Failed to parse vault: ${error.message}`);
+        debugLog(`${algorithm} vault parsing failed: ${error.message}`);
+        throw new Error(`Failed to parse vault for ${algorithm}: ${error.message}`);
     }
 }
 
@@ -482,7 +498,7 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             const password = passwords[i] || "";
 
             try {
-                const keyshareData = await parseAndDecryptVault(files[i], password);
+                const keyshareData = await parseAndDecryptVault(files[i], password, moduleType);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
 
                 // Use distinct data copy for each module to prevent cross-contamination
