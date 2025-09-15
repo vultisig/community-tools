@@ -61,8 +61,8 @@ function switchDebugTab(tabName) {
 }
 
 // Legacy functions for backward compatibility - now route to DEBUG level (suppressed by default)
-function logSection(section, message) {
-    logInfo(section, message); // Keep existing logSection calls as INFO level
+function logSection(section, message, shareName = '') {
+    logInfo(section, message, shareName); // Keep existing logSection calls as INFO level
 }
 function debugLog(message) {
     logDebug('DEBUG', message); // Route legacy debugLog to DEBUG (suppressed)
@@ -241,7 +241,7 @@ window.checkBalance = checkBalance;
 window.copyToClipboard = copyToClipboard;
 
 // Parse and decrypt vault container following the reference implementation pattern
-async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA") {
+async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA", shareName = '') {
     try {
         // Decode base64 if needed
         let vaultContainerData = fileData;
@@ -272,7 +272,7 @@ async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA") {
 
         // Parse vault and sort keyshares
         const vault = parseVault(vaultData);
-        const { ecdsaKeyshare, eddsaKeyshare } = sortKeyshares(vault);
+        const { ecdsaKeyshare, eddsaKeyshare } = sortKeyshares(vault, shareName);
         
         // Select keyshare for requested algorithm
         const selectedKeyshare = algorithm === "ECDSA" ? ecdsaKeyshare : eddsaKeyshare;
@@ -307,7 +307,7 @@ async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA") {
             throw new Error(`${algorithm} keyshare data too small, likely invalid`);
         }
 
-        logSection('PARSE', `${algorithm} keyshare extracted (${keyshareData.length} bytes)`);
+        logDebug('PARSE', `${algorithm} keyshare extracted (${keyshareData.length} bytes)`, shareName);
         return keyshareData;
 
     } catch (error) {
@@ -316,9 +316,9 @@ async function parseAndDecryptVault(fileData, password, algorithm = "ECDSA") {
 }
 
 // Function to sort keyshares by matching their public keys to vault ECDSA/EdDSA public keys
-function sortKeyshares(vault) {
+function sortKeyshares(vault, shareName = '') {
     if (!vault?.keyShares?.length) {
-        logSection('PARSE', 'No keyshares found in vault');
+        logDebug('PARSE', 'No keyshares found in vault', shareName);
         return { ecdsaKeyshare: null, eddsaKeyshare: null };
     }
     
@@ -337,7 +337,7 @@ function sortKeyshares(vault) {
     
     const ecdsaStatus = ecdsaKeyshare ? 'found' : 'not found';
     const eddsaStatus = eddsaKeyshare ? 'found' : 'not found';
-    logSection('PARSE', `Keyshares sorted: ECDSA ${ecdsaStatus}, EdDSA ${eddsaStatus}`);
+    logDebug('PARSE', `Keyshares sorted: ECDSA ${ecdsaStatus}, EdDSA ${eddsaStatus}`, shareName);
     
     return { ecdsaKeyshare, eddsaKeyshare };
 }
@@ -455,7 +455,8 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
             const password = passwords[i] || "";
 
             try {
-                const keyshareData = await parseAndDecryptVault(files[i], password, moduleType);
+                const shareName = fileNames[i] || `Share ${i + 1}`;
+                const keyshareData = await parseAndDecryptVault(files[i], password, moduleType, shareName);
                 debugLog(`Extracted keyshare data for file ${i + 1}, length: ${keyshareData.length} bytes`);
 
                 // Use distinct data copy for each module to prevent cross-contamination
