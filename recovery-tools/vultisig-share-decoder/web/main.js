@@ -489,14 +489,36 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         debugLog(`Finishing ${moduleType} session to extract private key...`);
         let privateKeyBytes;
         try {
+            debugLog(`Calling session.finish() for ${moduleType}...`);
             privateKeyBytes = session.finish();
+            debugLog(`${moduleType} session.finish() returned:`, privateKeyBytes);
+            debugLog(`${moduleType} privateKeyBytes type: ${typeof privateKeyBytes}`);
+            if (privateKeyBytes) {
+                debugLog(`${moduleType} privateKeyBytes length: ${privateKeyBytes.length}`);
+            } else {
+                debugLog(`${moduleType} session.finish() returned null/undefined!`);
+            }
         } catch (finishError) {
             debugLog(`${moduleType} session finish failed: ${finishError.message}`);
             throw new Error(`Failed to finish ${moduleType} DKLS session: ${finishError.message}`);
         }
 
         if (!privateKeyBytes || privateKeyBytes.length === 0) {
-            throw new Error(`${moduleType} session finished but returned empty private key`);
+            const errorMsg = `${moduleType} session finished but returned ${privateKeyBytes === null ? 'null' : privateKeyBytes === undefined ? 'undefined' : 'empty'} private key`;
+            debugLog(errorMsg);
+            
+            if (moduleType === "EdDSA") {
+                // For EdDSA, this is a known issue - return a special error object instead of throwing
+                debugLog("EdDSA processing failed - this is a known compatibility issue with DKLS keyshares");
+                return {
+                    failed: true,
+                    error: errorMsg,
+                    moduleType: "EdDSA"
+                };
+            } else {
+                // For ECDSA, this is unexpected - throw the error
+                throw new Error(errorMsg);
+            }
         }
 
         const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -526,11 +548,21 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         debugLog("=== EXTRACTING EDDSA KEY ===");
         const eddsaResult = await extractPrivateKeyWithModule(eddsaModule, "EdDSA");
         
-        debugLog("Successfully extracted both ECDSA and EdDSA keys from DKLS keyshares");
+        // Check if EdDSA processing failed
+        let eddsaPrivateKeyHex = "";
+        let eddsaProcessingFailed = false;
+        
+        if (eddsaResult.failed) {
+            debugLog(`EdDSA processing failed: ${eddsaResult.error}`);
+            debugLog("Continuing with ECDSA-only processing. EdDSA coins (Solana, Sui, TON) will not be available.");
+            eddsaProcessingFailed = true;
+        } else {
+            debugLog("Successfully extracted both ECDSA and EdDSA keys from DKLS keyshares");
+            eddsaPrivateKeyHex = eddsaResult.privateKeyHex;
+        }
         
         // Use the ECDSA result for public key and chain code (they should be the same)
         const privateKeyHex = ecdsaResult.privateKeyHex;
-        const eddsaPrivateKeyHex = eddsaResult.privateKeyHex;
         const publicKeyHex = ecdsaResult.publicKeyHex;
         const rootChainCodeHex = ecdsaResult.rootChainCodeHex;
         
@@ -543,6 +575,14 @@ async function processDKLSWithWASM(files, passwords, fileNames) {
         }
 
         // Call the new JSON WASM function to derive keys for all supported coins using both keys
+        // Add warning if EdDSA processing failed
+        let warningMessage = "";
+        if (eddsaProcessingFailed) {
+            warningMessage = "⚠️ EdDSA processing failed due to compatibility issues with DKLS keyshares. " +
+                           "EdDSA-based cryptocurrencies (Solana, Sui, TON) are not available. " +
+                           "ECDSA-based cryptocurrencies (Bitcoin, Ethereum, etc.) work normally.";
+        }
+        
         debugLog("Calling WASM DeriveAndShowKeysJSON function with both ECDSA and EdDSA keys...");
         let derivedKeysOutput = "";
         let jsonKeysData = null;
@@ -802,14 +842,36 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         debugLog(`Finishing ${moduleType} session to extract private key...`);
         let privateKeyBytes;
         try {
+            debugLog(`Calling session.finish() for ${moduleType}...`);
             privateKeyBytes = session.finish();
+            debugLog(`${moduleType} session.finish() returned:`, privateKeyBytes);
+            debugLog(`${moduleType} privateKeyBytes type: ${typeof privateKeyBytes}`);
+            if (privateKeyBytes) {
+                debugLog(`${moduleType} privateKeyBytes length: ${privateKeyBytes.length}`);
+            } else {
+                debugLog(`${moduleType} session.finish() returned null/undefined!`);
+            }
         } catch (finishError) {
             debugLog(`${moduleType} session finish failed: ${finishError.message}`);
             throw new Error(`Failed to finish ${moduleType} DKLS session: ${finishError.message}`);
         }
 
         if (!privateKeyBytes || privateKeyBytes.length === 0) {
-            throw new Error(`${moduleType} session finished but returned empty private key`);
+            const errorMsg = `${moduleType} session finished but returned ${privateKeyBytes === null ? 'null' : privateKeyBytes === undefined ? 'undefined' : 'empty'} private key`;
+            debugLog(errorMsg);
+            
+            if (moduleType === "EdDSA") {
+                // For EdDSA, this is a known issue - return a special error object instead of throwing
+                debugLog("EdDSA processing failed - this is a known compatibility issue with DKLS keyshares");
+                return {
+                    failed: true,
+                    error: errorMsg,
+                    moduleType: "EdDSA"
+                };
+            } else {
+                // For ECDSA, this is unexpected - throw the error
+                throw new Error(errorMsg);
+            }
         }
 
         const privateKeyHex = Array.from(privateKeyBytes).map(b => b.toString(16).padStart(2, '0')).join('');
@@ -839,11 +901,21 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
         debugLog("=== EXTRACTING EDDSA KEY ===");
         const eddsaResult = await extractPrivateKeyWithModule(eddsaModule, "EdDSA");
         
-        debugLog("Successfully extracted both ECDSA and EdDSA keys from DKLS keyshares");
+        // Check if EdDSA processing failed
+        let eddsaPrivateKeyHex = "";
+        let eddsaProcessingFailed = false;
+        
+        if (eddsaResult.failed) {
+            debugLog(`EdDSA processing failed: ${eddsaResult.error}`);
+            debugLog("Continuing with ECDSA-only processing. EdDSA coins (Solana, Sui, TON) will not be available.");
+            eddsaProcessingFailed = true;
+        } else {
+            debugLog("Successfully extracted both ECDSA and EdDSA keys from DKLS keyshares");
+            eddsaPrivateKeyHex = eddsaResult.privateKeyHex;
+        }
         
         // Use extracted keys
         const privateKeyHex = ecdsaResult.privateKeyHex;
-        const eddsaPrivateKeyHex = eddsaResult.privateKeyHex;
         const publicKeyHex = ecdsaResult.publicKeyHex;
         const rootChainCodeHex = ecdsaResult.rootChainCodeHex;
         
