@@ -8,7 +8,11 @@ webserver:
 wasm:
 	@echo "Building WASM..."
 	@mkdir -p web
-	GOOS=js GOARCH=wasm go build -tags wasm -o web/main.wasm ./cmd/wasm.go
+	GOOS=js GOARCH=wasm go build \
+		-trimpath \
+		-ldflags="-buildid="v1.0" -w -s" \
+		-tags wasm \
+		-o web/main.wasm ./cmd/wasm.go
 
 build: all
 
