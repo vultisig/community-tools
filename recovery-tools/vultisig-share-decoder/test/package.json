@@ -1,8 +1,8 @@
 {
-  "name": "vultisig-aes-gcm-tests",
+  "name": "vultisig-share-decoder-tests",
   "version": "1.0.0",
   "type": "module",
-  "description": "AES-GCM decryption tests for Vultisig",
+  "description": "Tests for Vultisig",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest"
