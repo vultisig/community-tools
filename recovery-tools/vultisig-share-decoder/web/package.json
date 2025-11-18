@@ -1,0 +1,13 @@
+{
+  "name": "vultisig-aes-gcm-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "AES-GCM decryption tests for Vultisig",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "vitest": "^1.0.0"
+  }
+}
