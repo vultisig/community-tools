@@ -330,4 +330,125 @@ describe('decryptWithAesGcm', () => {
       expect(result.length).toBe(10)
     })
   })
+
+  describe('special character handling', () => {
+    async function encryptWithAesGcm(password, plaintext) {
+      const enc = new TextEncoder()
+      const plaintextBytes = enc.encode(plaintext)
+      
+      const pwUtf8 = enc.encode(password)
+      const pwHashBuffer = await crypto.subtle.digest('SHA-256', pwUtf8)
+      
+      const cryptoKey = await crypto.subtle.importKey(
+        'raw',
+        pwHashBuffer,
+        { name: 'AES-GCM' },
+        false,
+        ['encrypt']
+      )
+      
+      const iv = crypto.getRandomValues(new Uint8Array(12))
+      
+      const ciphertextBuffer = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        cryptoKey,
+        plaintextBytes
+      )
+      
+      const ciphertext = new Uint8Array(ciphertextBuffer)
+      const result = new Uint8Array(iv.length + ciphertext.length)
+      result.set(iv, 0)
+      result.set(ciphertext, iv.length)
+      
+      return btoa(String.fromCharCode(...result))
+    }
+
+    it('should handle emoji characters', async () => {
+      const password = 'emoji-test'
+      const message = 'Hello 🔐 World 🚀🎉'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle Chinese characters', async () => {
+      const password = 'chinese-test'
+      const message = '你好世界 Hello World'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle Arabic characters', async () => {
+      const password = 'arabic-test'
+      const message = 'مرحبا بالعالم Hello'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle special symbols', async () => {
+      const password = 'symbols-test'
+      const message = 'Special: © ® ™ € £ ¥ § ¶ † ‡'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle mixed unicode and emojis', async () => {
+      const password = 'mixed-test'
+      const message = '🔐 安全 Secure آمن 🛡️'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle mathematical and technical symbols', async () => {
+      const password = 'math-test'
+      const message = '∑ ∫ ∂ √ ∞ ≈ ≠ ≤ ≥ π α β γ'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle newlines and control characters', async () => {
+      const password = 'control-test'
+      const message = 'Line 1\nLine 2\tTabbed\rCarriage Return'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+
+    it('should handle JSON-like special characters', async () => {
+      const password = 'json-test'
+      const message = '{"key": "value", "special": "\\n\\t\\r"}'
+      
+      const encrypted = await encryptWithAesGcm(password, message)
+      const decrypted = await decryptWithAesGcm({ key: password, value: encrypted })
+      const text = new TextDecoder().decode(decrypted)
+      
+      expect(text).toBe(message)
+    })
+  })
 })
