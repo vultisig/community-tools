@@ -10,7 +10,7 @@ wasm:
 	@mkdir -p web
 	GOOS=js GOARCH=wasm go build \
 		-trimpath \
-		-ldflags="-buildid="v1.0" -w -s" \
+		-ldflags="-buildid="v1.1" -w -s" \
 		-tags wasm \
 		-o web/main.wasm ./cmd/wasm.go
 
