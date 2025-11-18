@@ -22,7 +22,7 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { decryptWithAesGcm, fromBase64 } from './aes_gcm.js'
+import { decryptWithAesGcm, fromBase64 } from '../web/aes_gcm.js'
 
 if (typeof global !== 'undefined' && !global.crypto) {
   const { webcrypto } = await import('crypto')
