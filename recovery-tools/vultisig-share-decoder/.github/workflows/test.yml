@@ -26,6 +26,12 @@ jobs:
     - name: Install JavaScript dependencies
       working-directory: ./recovery-tools/vultisig-share-decoder/test
       run: npm install
-    - name: Run code checks and tests
+    - name: Run code checks
       working-directory: ./recovery-tools/vultisig-share-decoder
-      run: make check && make test-all
+      run: make check
+    - name: Run Go tests
+      working-directory: ./recovery-tools/vultisig-share-decoder
+      run: make test
+    - name: Run JavaScript tests
+      working-directory: ./recovery-tools/vultisig-share-decoder/test
+      run: npm test
