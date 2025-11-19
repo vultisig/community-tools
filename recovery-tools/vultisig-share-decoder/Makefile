@@ -22,7 +22,7 @@ test:
 
 test-js:
 	@echo "Running JavaScript tests..."
-	cd test && npm test
+	cd test && npm ci && npm test
 
 test-all: test test-js
 	@echo "All tests completed successfully!"
