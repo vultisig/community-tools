@@ -801,6 +801,108 @@ async function processDKLSWithJSON(files, passwords, fileNames) {
     }
 }
 
+// Helper to check if data looks like text (for base64 detection)
+function looksLikeText(data) {
+    // Check first 100 bytes (or all if less) for printable ASCII/base64 chars
+    const sample = data.slice(0, Math.min(100, data.length));
+    let printableCount = 0;
+    for (let i = 0; i < sample.length; i++) {
+        const byte = sample[i];
+        // Base64 uses A-Z, a-z, 0-9, +, /, = and whitespace
+        if ((byte >= 65 && byte <= 90) ||  // A-Z
+            (byte >= 97 && byte <= 122) || // a-z
+            (byte >= 48 && byte <= 57) ||  // 0-9
+            byte === 43 || byte === 47 || byte === 61 || // +, /, =
+            byte === 10 || byte === 13 || byte === 32) {  // newline, carriage return, space
+            printableCount++;
+        }
+    }
+    // If >90% looks like base64 chars, treat as text
+    return (printableCount / sample.length) > 0.9;
+}
+
+// Auto-detect and validate libType from vault files
+async function detectAndValidateLibType(files, passwords, fileNames) {
+    const libTypes = [];
+    
+    for (let i = 0; i < files.length; i++) {
+        const fileData = files[i];
+        const password = passwords[i] || "";
+        const fileName = fileNames[i];
+        
+        try {
+            // Try to parse as base64 first (only if data looks like text)
+            let vaultContainerData = fileData;
+            if (looksLikeText(fileData)) {
+                try {
+                    const base64String = new TextDecoder('utf-8', { fatal: false }).decode(fileData);
+                    const trimmedBase64 = base64String.trim();
+                    const decoded = fromBase64(trimmedBase64);
+                    if (decoded.length > 100) {
+                        vaultContainerData = decoded;
+                    }
+                } catch (e) {
+                    // Not base64, use raw data
+                    logDebug('DETECT', `File "${fileName}" base64 decode failed, using binary: ${e.message}`);
+                }
+            }
+            
+            // Parse vault container
+            const vaultContainer = parseVaultContainer(vaultContainerData);
+            
+            // Get vault data (decrypt if needed)
+            let vaultData;
+            if (vaultContainer.isEncrypted) {
+                if (!password) {
+                    throw new Error(`File "${fileName}" is encrypted but no password was provided`);
+                }
+                const encryptedVaultBytes = fromBase64(vaultContainer.vault.trim());
+                vaultData = await decryptWithAesGcm({
+                    key: password,
+                    value: encryptedVaultBytes
+                });
+            } else {
+                vaultData = fromBase64(vaultContainer.vault.trim());
+            }
+            
+            // Parse vault to get libType
+            const vault = parseVault(vaultData);
+            libTypes.push({
+                fileName: fileName,
+                libType: vault.libType
+            });
+            
+            logDebug('DETECT', `File "${fileName}" has libType: ${vault.libType}`);
+            
+        } catch (error) {
+            throw new Error(`Failed to detect vault type for "${fileName}": ${error.message}`);
+        }
+    }
+    
+    // Validate all files have the same libType
+    if (libTypes.length > 0) {
+        const firstLibType = libTypes[0].libType;
+        for (let i = 1; i < libTypes.length; i++) {
+            if (libTypes[i].libType !== firstLibType) {
+                const firstTypeName = firstLibType === LibType.GG20 ? 'GG20' : 'DKLS';
+                const currentTypeName = libTypes[i].libType === LibType.GG20 ? 'GG20' : 'DKLS';
+                throw new Error(
+                    `Mixed vault types detected!\n` +
+                    `"${libTypes[0].fileName}" is ${firstTypeName} (libType: ${firstLibType})\n` +
+                    `"${libTypes[i].fileName}" is ${currentTypeName} (libType: ${libTypes[i].libType})\n\n` +
+                    `All uploaded files must be the same type (all GG20 or all DKLS).`
+                );
+            }
+        }
+        
+        const detectedType = firstLibType === LibType.GG20 ? 'GG20' : 'DKLS';
+        logInfo('DETECT', `Auto-detected vault type: ${detectedType} (libType: ${firstLibType})`);
+        return firstLibType;
+    }
+    
+    throw new Error('No valid vault files found');
+}
+
 async function recoverKeys() {
     // Clear debug output and start fresh
     clearDebugOutput();
@@ -834,21 +936,21 @@ async function recoverKeys() {
             return;
         }
 
-        // Check which scheme is selected
-        const selectedScheme = document.querySelector('input[name="scheme"]:checked').value;
-        debugLog(`Selected scheme: ${selectedScheme}`);
+        // Auto-detect vault type from uploaded files
+        logInfo('PROCESS', `Detecting vault type from ${files.length} file(s)...`);
+        const detectedLibType = await detectAndValidateLibType(files, passwords, fileNames);
 
-        if (selectedScheme === 'dkls') {
+        // Route to appropriate processor based on detected libType
+        if (detectedLibType === LibType.DKLS) {
             logInfo('PROCESS', `Processing ${files.length} DKLS files...`);
             await processDKLSWithJSON(files, passwords, fileNames);
         } else {
-            logInfo('PROCESS', `Processing ${files.length} files with ${selectedScheme} scheme...`);
+            logInfo('PROCESS', `Processing ${files.length} GG20 files...`);
             await processWithJSONWASM(files, passwords, fileNames);
         }
 
     } catch (error) {
-        displayResults(`Error: ${error.message}`);
-        debugLog(`Error in recoverKeys: ${error.message}`);
+        displayError(error.message);
     }
 }
 
@@ -878,7 +980,7 @@ async function processWithJSONWASM(files, passwords, fileNames) {
 
         if (!resultData.success) {
             debugLog(`Processing failed: ${resultData.error}`);
-            displayResults(`Error: ${resultData.error}`);
+            displayError(resultData.error);
             return;
         }
 
@@ -887,13 +989,19 @@ async function processWithJSONWASM(files, passwords, fileNames) {
 
     } catch (error) {
         debugLog(`Error in processWithJSONWASM: ${error.message}`);
-        displayResults(`Error: ${error.message}`);
+        displayError(error.message);
     }
 }
 
 // Function to display results from JSON data structure
 function displayJSONResults(resultData) {
     logInfo('DISPLAY', 'Rendering results interface');
+    
+    // Hide error display if it exists
+    const errorDiv = document.getElementById('errorDisplay');
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
     
     // Clear all sections first
     hideAllResultSections();
@@ -920,6 +1028,39 @@ function hideAllResultSections() {
             section.style.display = 'none';
         }
     });
+}
+
+// Display error without destroying the result sections
+function displayError(errorMessage) {
+    logError('ERROR', errorMessage);
+    
+    // Hide all result sections
+    hideAllResultSections();
+    
+    // Create or update error display section
+    const resultsSection = document.getElementById('results');
+    if (!resultsSection) {
+        logError('DISPLAY', 'Results section not found in DOM');
+        return;
+    }
+    
+    // Check if error display already exists
+    let errorDiv = document.getElementById('errorDisplay');
+    if (!errorDiv) {
+        // Create error display at the top of results section
+        errorDiv = document.createElement('div');
+        errorDiv.id = 'errorDisplay';
+        errorDiv.className = 'result-section error-section';
+        resultsSection.insertBefore(errorDiv, resultsSection.firstChild);
+    }
+    
+    errorDiv.style.display = 'block';
+    errorDiv.innerHTML = `
+        <div class="error-message">
+            <h3 style="color: var(--error-color);">⚠️ Error</h3>
+            <p>${errorMessage}</p>
+        </div>
+    `;
 }
 
 function displayShareDetails(shareDetails) {
@@ -950,8 +1091,16 @@ function displayShareDetails(shareDetails) {
         `;
     });
     
-    document.getElementById('shareDetailsContent').innerHTML = html;
-    document.getElementById('shareDetailsSection').style.display = 'block';
+    const contentEl = document.getElementById('shareDetailsContent');
+    const sectionEl = document.getElementById('shareDetailsSection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Share details elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 function displayPublicKeys(publicKeys) {
@@ -1000,8 +1149,16 @@ function displayPublicKeys(publicKeys) {
         `;
     }
     
-    document.getElementById('publicKeysContent').innerHTML = html;
-    document.getElementById('publicKeysSection').style.display = 'block';
+    const contentEl = document.getElementById('publicKeysContent');
+    const sectionEl = document.getElementById('publicKeysSection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Public keys elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 function displayRootKeyInfo(rootKeyInfo) {
@@ -1087,8 +1244,16 @@ function displayRootKeyInfo(rootKeyInfo) {
         `;
     }
     
-    document.getElementById('rootKeyContentInner').innerHTML = html;
-    document.getElementById('rootKeySection').style.display = 'block';
+    const contentEl = document.getElementById('rootKeyContentInner');
+    const sectionEl = document.getElementById('rootKeySection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Root key elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 // Cryptocurrency icon mapping with smart fallback system
@@ -1244,8 +1409,16 @@ function displayCoinKeys(coinKeys) {
         `;
     });
     
-    document.getElementById('coinKeysContent').innerHTML = html;
-    document.getElementById('coinKeysSection').style.display = 'block';
+    const contentEl = document.getElementById('coinKeysContent');
+    const sectionEl = document.getElementById('coinKeysSection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Coin keys elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 // Helper function to format derived keys from JSON data

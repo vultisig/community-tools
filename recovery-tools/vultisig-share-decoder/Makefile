@@ -10,7 +10,7 @@ wasm:
 	@mkdir -p web
 	GOOS=js GOARCH=wasm go build \
 		-trimpath \
-		-ldflags="-buildid="v1.0" -w -s" \
+		-ldflags="-buildid="v1.1" -w -s" \
 		-tags wasm \
 		-o web/main.wasm ./cmd/wasm.go
 
@@ -22,7 +22,7 @@ test:
 
 test-js:
 	@echo "Running JavaScript tests..."
-	node test/config_test.js
+	cd test && npx vitest run
 
 test-all: test test-js
 	@echo "All tests completed successfully!"
@@ -39,6 +39,7 @@ check:
 	@echo "Running go vet..."
 	go vet ./...
 	@echo "✅ go vet passed"
+
 format:
 	@echo "Formatting Go code..."
 	gofmt -w .
