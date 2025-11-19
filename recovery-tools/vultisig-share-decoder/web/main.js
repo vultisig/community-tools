@@ -1053,8 +1053,16 @@ function displayShareDetails(shareDetails) {
         `;
     });
     
-    document.getElementById('shareDetailsContent').innerHTML = html;
-    document.getElementById('shareDetailsSection').style.display = 'block';
+    const contentEl = document.getElementById('shareDetailsContent');
+    const sectionEl = document.getElementById('shareDetailsSection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Share details elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 function displayPublicKeys(publicKeys) {
@@ -1103,8 +1111,16 @@ function displayPublicKeys(publicKeys) {
         `;
     }
     
-    document.getElementById('publicKeysContent').innerHTML = html;
-    document.getElementById('publicKeysSection').style.display = 'block';
+    const contentEl = document.getElementById('publicKeysContent');
+    const sectionEl = document.getElementById('publicKeysSection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Public keys elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 function displayRootKeyInfo(rootKeyInfo) {
@@ -1190,8 +1206,16 @@ function displayRootKeyInfo(rootKeyInfo) {
         `;
     }
     
-    document.getElementById('rootKeyContentInner').innerHTML = html;
-    document.getElementById('rootKeySection').style.display = 'block';
+    const contentEl = document.getElementById('rootKeyContentInner');
+    const sectionEl = document.getElementById('rootKeySection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Root key elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 // Cryptocurrency icon mapping with smart fallback system
@@ -1347,8 +1371,16 @@ function displayCoinKeys(coinKeys) {
         `;
     });
     
-    document.getElementById('coinKeysContent').innerHTML = html;
-    document.getElementById('coinKeysSection').style.display = 'block';
+    const contentEl = document.getElementById('coinKeysContent');
+    const sectionEl = document.getElementById('coinKeysSection');
+    
+    if (!contentEl || !sectionEl) {
+        logError('DISPLAY', 'Coin keys elements not found in DOM');
+        return;
+    }
+    
+    contentEl.innerHTML = html;
+    sectionEl.style.display = 'block';
 }
 
 // Helper function to format derived keys from JSON data
