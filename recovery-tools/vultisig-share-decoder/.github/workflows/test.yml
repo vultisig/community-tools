@@ -23,9 +23,6 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '20'
-    - name: Install JavaScript dependencies
-      working-directory: ./recovery-tools/vultisig-share-decoder/test
-      run: npm install
     - name: Run code checks
       working-directory: ./recovery-tools/vultisig-share-decoder
       run: make check
@@ -34,4 +31,4 @@ jobs:
       run: make test
     - name: Run JavaScript tests
       working-directory: ./recovery-tools/vultisig-share-decoder/test
-      run: npm test
+      run: npm ci && npm test
