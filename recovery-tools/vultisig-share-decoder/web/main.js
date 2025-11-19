@@ -950,8 +950,7 @@ async function recoverKeys() {
         }
 
     } catch (error) {
-        displayResults(`Error: ${error.message}`);
-        logError('ERROR', `Recovery failed: ${error.message}`);
+        displayError(error.message);
     }
 }
 
@@ -981,7 +980,7 @@ async function processWithJSONWASM(files, passwords, fileNames) {
 
         if (!resultData.success) {
             debugLog(`Processing failed: ${resultData.error}`);
-            displayResults(`Error: ${resultData.error}`);
+            displayError(resultData.error);
             return;
         }
 
@@ -990,13 +989,19 @@ async function processWithJSONWASM(files, passwords, fileNames) {
 
     } catch (error) {
         debugLog(`Error in processWithJSONWASM: ${error.message}`);
-        displayResults(`Error: ${error.message}`);
+        displayError(error.message);
     }
 }
 
 // Function to display results from JSON data structure
 function displayJSONResults(resultData) {
     logInfo('DISPLAY', 'Rendering results interface');
+    
+    // Hide error display if it exists
+    const errorDiv = document.getElementById('errorDisplay');
+    if (errorDiv) {
+        errorDiv.style.display = 'none';
+    }
     
     // Clear all sections first
     hideAllResultSections();
@@ -1023,6 +1028,39 @@ function hideAllResultSections() {
             section.style.display = 'none';
         }
     });
+}
+
+// Display error without destroying the result sections
+function displayError(errorMessage) {
+    logError('ERROR', errorMessage);
+    
+    // Hide all result sections
+    hideAllResultSections();
+    
+    // Create or update error display section
+    const resultsSection = document.getElementById('results');
+    if (!resultsSection) {
+        logError('DISPLAY', 'Results section not found in DOM');
+        return;
+    }
+    
+    // Check if error display already exists
+    let errorDiv = document.getElementById('errorDisplay');
+    if (!errorDiv) {
+        // Create error display at the top of results section
+        errorDiv = document.createElement('div');
+        errorDiv.id = 'errorDisplay';
+        errorDiv.className = 'result-section error-section';
+        resultsSection.insertBefore(errorDiv, resultsSection.firstChild);
+    }
+    
+    errorDiv.style.display = 'block';
+    errorDiv.innerHTML = `
+        <div class="error-message">
+            <h3 style="color: var(--error-color);">⚠️ Error</h3>
+            <p>${errorMessage}</p>
+        </div>
+    `;
 }
 
 function displayShareDetails(shareDetails) {
