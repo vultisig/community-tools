@@ -1,5 +1,4 @@
-// @ts-ignore - tronweb types may not be available
-import type TronWeb from 'tronweb'
+import { TronWeb } from 'tronweb'
 
 export interface TronTransaction {
   raw_data: {
@@ -32,7 +31,7 @@ async function buildTransferTRX(
   fromAddress: string,
   toAddress: string,
   tronWeb: TronWeb
-): Promise<TronTransaction> {
+) {
   try {
     if (!tronWeb.transactionBuilder?.sendTrx) {
       throw new Error('sendTrx method not available')
@@ -50,7 +49,7 @@ async function buildTransferUSDT(
   fromAddress: string,
   toAddress: string,
   tronWeb: TronWeb
-): Promise<TronTransaction> {
+) {
   try {
     if (!tronWeb.transactionBuilder?.triggerSmartContract) {
       throw new Error('triggerSmartContract method not available')
@@ -93,7 +92,7 @@ export const getTronTransactionExamples = async (
   fromAddress: string,
   toAddress?: string,
   exampleType?: string
-): Promise<Record<string, TronTransaction> | TronTransaction> => {
+) => {
   const defaultToAddress = toAddress || fromAddress
   const tronWeb = getTronWeb()
   

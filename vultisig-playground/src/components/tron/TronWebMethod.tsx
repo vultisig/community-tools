@@ -154,6 +154,7 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
           throw new Error('trx.broadcast method not available')
         }
 
+        // TODO: Uncomment on fix bug on extension
         // const broadcastMethod = trx.broadcast as (tx: unknown) => Promise<unknown>
         // const broadcastResult = await broadcastMethod(signedTransaction)
 
