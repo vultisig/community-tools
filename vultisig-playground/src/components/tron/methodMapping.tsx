@@ -1,3 +1,5 @@
+import { RequestMethod } from './RequestMethod'
+import { TronWebMethod } from './TronWebMethod'
 import type { ReactElement } from 'react'
 
 interface MethodComponentProps {
@@ -9,7 +11,10 @@ interface MethodComponentProps {
 
 type MethodComponent = (props: MethodComponentProps) => ReactElement
 
-export const tronMethodMapping: Record<string, MethodComponent> = {}
+export const tronMethodMapping: Record<string, MethodComponent> = {
+  request: RequestMethod,
+  tronWeb: TronWebMethod,
+}
 
 export function getMethodComponent(methodName: string): MethodComponent | null {
   return tronMethodMapping[methodName] || null
