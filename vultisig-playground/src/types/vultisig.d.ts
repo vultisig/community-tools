@@ -23,7 +23,7 @@ interface VultisigWindow {
     cosmos?: VultisigProvider
     keplr?: VultisigProvider
     ethereum?: VultisigProvider
-    tron?: VultisigProvider
+    tron?: VultisigTronProvider
     zcash?: VultisigProvider
     dogecoin?: VultisigProvider
     bch?: VultisigProvider

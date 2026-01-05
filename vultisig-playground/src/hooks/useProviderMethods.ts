@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { tronMethodMapping } from '../components/tron/methodMapping'
 
 export function useProviderMethods(providerName: string) {
   const [methods, setMethods] = useState<string[]>([])
@@ -45,6 +46,15 @@ export function useProviderMethods(providerName: string) {
               methodNames.push(key)
             }
           }
+        }
+      }
+    }
+
+    if (providerName === 'tron') {
+      const tronMethods = Object.keys(tronMethodMapping)
+      for (const method of tronMethods) {
+        if (!methodNames.includes(method)) {
+          methodNames.push(method)
         }
       }
     }
