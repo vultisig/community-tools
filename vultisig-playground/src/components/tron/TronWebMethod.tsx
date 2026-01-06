@@ -28,6 +28,7 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
   const [fromAddress, setFromAddress] = useState<string>('')
   const [toAddress, setToAddress] = useState<string>('TB3fnJmKZ98MrXrvJthv1B4SYy2Jfm6Qtf')
   const [loading, setLoading] = useState<boolean>(false)
+  const [loadingTronLink, setLoadingTronLink] = useState<boolean>(false)
   const [loadingAddress, setLoadingAddress] = useState<boolean>(false)
   const [loadingExample, setLoadingExample] = useState<boolean>(false)
 
@@ -102,23 +103,58 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
     setSelectedExample('')
   }, [fromAddress, toAddress])
 
-  const handleExecute = async (): Promise<void> => {
-    const tronProvider = window.vultisig?.tron
-    if (!tronProvider) {
-      onError('Tron provider not available')
-      return
+  const handleExecute = async (useTronLink: boolean = false): Promise<void> => {
+    let tronWeb: Record<string, unknown> | null = null
+    let tronProvider: unknown = null
+    
+    if (useTronLink) {
+      const windowWithTron = window as unknown as {
+        tronWeb?: Record<string, unknown>
+        tronLink?: { tronWeb?: Record<string, unknown>; request?: (params: { method: string; params?: unknown[] }) => Promise<unknown> }
+      }
+      tronWeb = (windowWithTron.tronWeb || windowWithTron.tronLink?.tronWeb) || null
+      tronProvider = windowWithTron.tronLink || null
+      if (!tronWeb || !tronProvider) {
+        onError('TronLink extension not available')
+        return
+      }
+      setLoadingTronLink(true)
+    } else {
+      tronProvider = window.vultisig?.tron
+      if (!tronProvider) {
+        onError('Tron provider not available')
+        return
+      }
+      if (!window.vultisig?.tron?.tronWeb) {
+        onError('Please use the "request" method first to connect your Tron account. tronWeb object is not available on Tron provider.')
+        return
+      }
+      tronWeb = window.vultisig.tron.tronWeb as Record<string, unknown>
+      setLoading(true)
     }
 
-    setLoading(true)
     try {
-      if (!window.vultisig?.tron?.tronWeb) {
-        throw new Error('Please use the "request" method first to connect your Tron account. tronWeb object is not available on Tron provider.')
-      }
-
-      const tronWeb = window.vultisig.tron.tronWeb as Record<string, unknown>
-
       if (method === 'defaultAddress') {
-        const defaultAddress = tronWeb.defaultAddress as { base58?: string } | undefined
+        let defaultAddress = tronWeb.defaultAddress as { base58?: string } | undefined
+        
+        if (useTronLink && (!defaultAddress?.base58)) {
+          const providerObj = tronProvider as { request?: (params: { method: string; params?: unknown[] }) => Promise<unknown> }
+          if (providerObj.request) {
+            await providerObj.request({
+              method: 'tron_requestAccounts',
+              params: [],
+            })
+            const windowWithTron = window as unknown as {
+              tronWeb?: Record<string, unknown>
+              tronLink?: { tronWeb?: Record<string, unknown> }
+            }
+            tronWeb = (windowWithTron.tronWeb || windowWithTron.tronLink?.tronWeb) || null
+            if (tronWeb) {
+              defaultAddress = tronWeb.defaultAddress as { base58?: string } | undefined
+            }
+          }
+        }
+        
         if (!defaultAddress?.base58) {
           throw new Error('Please use the "request" method first to connect your Tron account. defaultAddress.base58 is not available in tronWeb.')
         }
@@ -164,10 +200,18 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
         })
       }
     } catch (err) {
-      onError((err as Error).message || 'Unknown error')
+      onError(useTronLink ? `TronLink: ${(err as Error).message || 'Unknown error'}` : (err as Error).message || 'Unknown error')
     } finally {
-      setLoading(false)
+      if (useTronLink) {
+        setLoadingTronLink(false)
+      } else {
+        setLoading(false)
+      }
     }
+  }
+
+  const handleExecuteWithTronLink = async (): Promise<void> => {
+    await handleExecute(true)
   }
 
   return (
@@ -271,19 +315,39 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
           </div>
         </>
       )}
-      <button
-        onClick={handleExecute}
-        disabled={loading || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim()))}
-        className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
-      >
-        {loading
-          ? method === 'signAndBroadcast'
-            ? 'Signing & Broadcasting...'
-            : 'Getting Address...'
-          : method === 'signAndBroadcast'
-            ? 'Sign & Broadcast Transaction'
-            : 'Get Default Address'}
-      </button>
+      <div className="space-y-3">
+        <button
+          onClick={() => handleExecute()}
+          disabled={loading || loadingTronLink || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim()))}
+          className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+        >
+          {loading
+            ? method === 'signAndBroadcast'
+              ? 'Signing & Broadcasting...'
+              : 'Getting Address...'
+            : method === 'signAndBroadcast'
+              ? 'Sign & Broadcast Transaction'
+              : 'Get Default Address'}
+        </button>
+        
+        <div className="border-t border-gray-200 pt-3">
+          <div className="text-xs text-gray-500 mb-2">
+            <span className="font-medium">Comparison:</span> Test signing with TronLink extension
+          </div>
+          <button
+            onClick={handleExecuteWithTronLink}
+            disabled={loadingTronLink || loading || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim())) || !((window as unknown as { tronWeb?: unknown; tronLink?: { tronWeb?: unknown } }).tronWeb || (window as unknown as { tronLink?: { tronWeb?: unknown } }).tronLink?.tronWeb)}
+            className="w-full px-3 py-2 text-xs bg-purple-50 border border-purple-200 text-purple-700 rounded hover:bg-purple-100 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors"
+            title="Sign and Broadcast with TronLink extension (for comparison)"
+          >
+            {loadingTronLink || loading
+              ? (loadingTronLink ? 'Signing with TronLink...' : 'Broadcasting...')
+              : method === 'signAndBroadcast'
+                ? 'Sign & Broadcast with TronLink'
+                : 'Get Default Address with TronLink'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
