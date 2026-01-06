@@ -4,6 +4,7 @@ import {
   getTronExampleDescriptions,
   type TronTransaction,
 } from './tronExamples'
+import { TronWeb } from 'tronweb'
 
 interface TronWebMethodProps {
   provider: unknown
@@ -49,7 +50,7 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
         throw new Error('Please use the "request" method first to connect your Tron account. defaultAddress.base58 is not available in tronWeb.')
       }
 
-      const address = (window.vultisig.tron.tronWeb.defaultAddress as { base58: string }).base58
+      const address = window.vultisig.tron.tronWeb.defaultAddress.base58
       setFromAddress(address)
       if (!toAddress || toAddress === 'TB3fnJmKZ98MrXrvJthv1B4SYy2Jfm6Qtf') {
         setToAddress('TB3fnJmKZ98MrXrvJthv1B4SYy2Jfm6Qtf')
@@ -71,9 +72,6 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
       setLoadingExample(true)
       try {
         const example = await getTronTransactionExamples(fromAddress, toAddress, exampleType) as TronTransaction
-
-        console.log('Example loaded:', example)
-        console.log('Example raw_data:', example?.raw_data)
 
         if (!example || !example.raw_data) {
           console.error('Example is invalid:', { example, hasRawData: !!example?.raw_data })
@@ -104,13 +102,13 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
   }, [fromAddress, toAddress])
 
   const handleExecute = async (useTronLink: boolean = false): Promise<void> => {
-    let tronWeb: Record<string, unknown> | null = null
+    let tronWeb: TronWeb | null = null
     let tronProvider: unknown = null
     
     if (useTronLink) {
       const windowWithTron = window as unknown as {
-        tronWeb?: Record<string, unknown>
-        tronLink?: { tronWeb?: Record<string, unknown>; request?: (params: { method: string; params?: unknown[] }) => Promise<unknown> }
+        tronWeb?: TronWeb
+        tronLink?: { tronWeb?: TronWeb; request?: (params: { method: string; params?: unknown[] }) => Promise<unknown> }
       }
       tronWeb = (windowWithTron.tronWeb || windowWithTron.tronLink?.tronWeb) || null
       tronProvider = windowWithTron.tronLink || null
@@ -129,13 +127,13 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
         onError('Please use the "request" method first to connect your Tron account. tronWeb object is not available on Tron provider.')
         return
       }
-      tronWeb = window.vultisig.tron.tronWeb as Record<string, unknown>
+      tronWeb = window.vultisig.tron?.tronWeb
       setLoading(true)
     }
 
     try {
       if (method === 'defaultAddress') {
-        let defaultAddress = tronWeb.defaultAddress as { base58?: string } | undefined
+        let defaultAddress = tronWeb?.defaultAddress
         
         if (useTronLink && (!defaultAddress?.base58)) {
           const providerObj = tronProvider as { request?: (params: { method: string; params?: unknown[] }) => Promise<unknown> }
@@ -145,12 +143,12 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
               params: [],
             })
             const windowWithTron = window as unknown as {
-              tronWeb?: Record<string, unknown>
-              tronLink?: { tronWeb?: Record<string, unknown> }
+              tronWeb?: TronWeb
+              tronLink?: { tronWeb?: TronWeb }
             }
-            tronWeb = (windowWithTron.tronWeb || windowWithTron.tronLink?.tronWeb) || null
+            tronWeb = (windowWithTron?.tronWeb || windowWithTron?.tronLink?.tronWeb) || null
             if (tronWeb) {
-              defaultAddress = tronWeb.defaultAddress as { base58?: string } | undefined
+              defaultAddress = tronWeb.defaultAddress
             }
           }
         }
@@ -173,30 +171,34 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
           throw new Error('Invalid JSON format for transaction')
         }
 
-        if (!tronWeb.trx || typeof tronWeb.trx !== 'object') {
+        if (!tronWeb?.trx || typeof tronWeb.trx !== 'object') {
           throw new Error('trx object not available in tronWeb')
         }
 
-        const trx = tronWeb.trx as Record<string, unknown>
+        const trx = tronWeb.trx
 
         if (!trx.sign || typeof trx.sign !== 'function') {
           throw new Error('trx.sign method not available')
         }
 
-        const signMethod = trx.sign as (tx: unknown) => Promise<unknown>
+        const signMethod = trx.sign
         const signedTransaction = await signMethod(transaction)
 
-        if (!trx.broadcast || typeof trx.broadcast !== 'function') {
-          throw new Error('trx.broadcast method not available')
+        let broadcastResult: unknown = null
+        if (tronWeb.trx.sendRawTransaction && typeof tronWeb.trx.sendRawTransaction === 'function') {
+          try {
+            broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction)
+          } catch (e) {
+            console.error('Error broadcasting transaction:', e)
+            broadcastResult = 'not available'
+          }
+        } else {
+          broadcastResult = 'not available'
         }
-
-        // TODO: Uncomment on fix bug on extension
-        // const broadcastMethod = trx.broadcast as (tx: unknown) => Promise<unknown>
-        // const broadcastResult = await broadcastMethod(signedTransaction)
 
         onResult({
           signedTransaction,
-          broadcastResult: 'not available',
+          broadcastResult: broadcastResult,
         })
       }
     } catch (err) {
@@ -336,7 +338,7 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
           </div>
           <button
             onClick={handleExecuteWithTronLink}
-            disabled={loadingTronLink || loading || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim())) || !((window as unknown as { tronWeb?: unknown; tronLink?: { tronWeb?: unknown } }).tronWeb || (window as unknown as { tronLink?: { tronWeb?: unknown } }).tronLink?.tronWeb)}
+            disabled={loadingTronLink || loading || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim()))}
             className="w-full px-3 py-2 text-xs bg-purple-50 border border-purple-200 text-purple-700 rounded hover:bg-purple-100 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors"
             title="Sign and Broadcast with TronLink extension (for comparison)"
           >
