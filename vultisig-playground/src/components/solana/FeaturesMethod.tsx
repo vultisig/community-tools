@@ -20,7 +20,6 @@ export function FeaturesMethod({ onResult, onError }: FeaturesMethodProps) {
 
     setLoading(true)
     try {
-      // features es una propiedad readonly según Wallet Standard
       if (solanaProvider.features === undefined) {
         throw new Error('features property is not available')
       }

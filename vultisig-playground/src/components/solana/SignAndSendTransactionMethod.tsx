@@ -6,6 +6,7 @@ import {
   getSolanaTransactionExamples,
   getSolanaExampleDescriptions,
   type SolanaExampleType,
+  type PartiallySignedTransactionResult,
 } from './solanaExamples'
 
 interface SignAndSendTransactionMethodProps {
@@ -31,6 +32,7 @@ export function SignAndSendTransactionMethod({ onResult, onError }: SignAndSendT
     { value: 'transferUSDC', label: exampleDescriptions.transferUSDC },
     { value: 'transferSOLLegacy', label: exampleDescriptions.transferSOLLegacy },
     { value: 'transferUSDCLegacy', label: exampleDescriptions.transferUSDCLegacy },
+    { value: 'partiallySignedSOL', label: exampleDescriptions.partiallySignedSOL },
   ]
 
   const fetchPublicKey = useCallback(async (): Promise<void> => {
@@ -68,7 +70,12 @@ export function SignAndSendTransactionMethod({ onResult, onError }: SignAndSendT
 
       setLoadingExample(true)
       try {
-        const exampleBase64 = await getSolanaTransactionExamples(fromAddress, toAddress, exampleType)
+        const exampleResult = await getSolanaTransactionExamples(fromAddress, toAddress, exampleType)
+        
+        const exampleBase64 = typeof exampleResult === 'object' && 'transaction' in exampleResult
+          ? (exampleResult as PartiallySignedTransactionResult).transaction
+          : (exampleResult as string)
+        
         setTransactionBase64(exampleBase64)
         setSelectedExample(exampleType)
       } catch (err) {
@@ -111,7 +118,6 @@ export function SignAndSendTransactionMethod({ onResult, onError }: SignAndSendT
         throw new Error('signAndSendTransaction method is not available')
       }
 
-      // Convert Base64 to VersionedTransaction from @solana/web3.js (wallets expect this format)
       const transactionBuffer = Buffer.from(transactionBase64, 'base64')
       const transactionBytes = new Uint8Array(transactionBuffer)
       const web3Transaction = VersionedTransaction.deserialize(transactionBytes)

@@ -17,23 +17,20 @@ import {
   getAssociatedTokenAddressSync,
   createAssociatedTokenAccountIdempotentInstruction 
 } from '@solana/spl-token'
-import { PublicKey } from '@solana/web3.js'
+import { PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { getTransactionEncoder } from '@solana/transactions'
 import { Buffer } from 'buffer'
 
-export type SolanaExampleType = 'transferSOL' | 'transferUSDC' | 'transferSOLLegacy' | 'transferUSDCLegacy'
+export type SolanaExampleType = 'transferSOL' | 'transferUSDC' | 'transferSOLLegacy' | 'transferUSDCLegacy' | 'partiallySignedSOL'
 
 export const getSolanaExampleDescriptions = (): Record<SolanaExampleType, string> => ({
   transferSOL: 'SOL Transfer (Versioned v0) - Transfer 0.01 SOL',
   transferUSDC: 'USDC Transfer (Versioned v0) - Transfer 0.1 USDC (SPL Token)',
   transferSOLLegacy: 'SOL Transfer (Legacy) - Transfer 0.01 SOL',
   transferUSDCLegacy: 'USDC Transfer (Legacy) - Transfer 0.1 USDC (SPL Token)',
+  partiallySignedSOL: 'Partially Signed SOL Transfer (Versioned v0) - Has existing signature',
 })
 
-
-/**
- * Build a SOL transfer transaction using @solana/kit
- */
 async function buildTransferSOL(
   fromAddress: string,
   toAddress: string,
@@ -45,9 +42,6 @@ async function buildTransferSOL(
   const fromAddr = address(fromAddress)
   const toAddr = address(toAddress)
   
-  // Use @solana-program/system to create transfer instruction
-  // Create a noop signer (doesn't actually sign, just provides the address structure)
-  // The actual signing will be done by the wallet when the transaction is signed
   const sourceSigner = createNoopSigner(fromAddr)
   
   const transferInstruction = getTransferSolInstruction({
@@ -56,9 +50,6 @@ async function buildTransferSOL(
     amount: amountLamports,
   })
 
-  // Create transaction message using pipe pattern as recommended by Solana Kit docs
-  // https://www.solanakit.com/docs/getting-started/build-transaction
-  // Get latest blockhash from RPC (using mainnet-beta by default)
   const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
   
@@ -69,10 +60,8 @@ async function buildTransferSOL(
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
   
-  // Compile transaction - this returns a Transaction object directly
   const transaction = compileTransaction(transactionMessage)
   
-  // Serialize to Base64 for display and wallet compatibility
   const transactionEncoder = getTransactionEncoder()
   const transactionBytes = transactionEncoder.encode(transaction)
   const base64String = Buffer.from(transactionBytes).toString('base64')
@@ -80,9 +69,6 @@ async function buildTransferSOL(
   return base64String
 }
 
-/**
- * Build a SOL transfer transaction (Legacy) using @solana/kit
- */
 async function buildTransferSOLLegacy(
   fromAddress: string,
   toAddress: string,
@@ -94,9 +80,6 @@ async function buildTransferSOLLegacy(
   const fromAddr = address(fromAddress)
   const toAddr = address(toAddress)
   
-  // Use @solana-program/system to create transfer instruction
-  // Create a noop signer (doesn't actually sign, just provides the address structure)
-  // The actual signing will be done by the wallet when the transaction is signed
   const sourceSigner = createNoopSigner(fromAddr)
   
   const transferInstruction = getTransferSolInstruction({
@@ -105,13 +88,9 @@ async function buildTransferSOLLegacy(
     amount: amountLamports,
   })
 
-  // Create transaction message using pipe pattern as recommended by Solana Kit docs
-  // https://www.solanakit.com/docs/getting-started/build-transaction
-  // Get latest blockhash from RPC (using mainnet-beta by default)
   const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
   
-  // Legacy transaction: createTransactionMessage({ version: 'legacy' })
   const transactionMessage = pipe(
     createTransactionMessage({ version: 'legacy' }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
@@ -119,10 +98,8 @@ async function buildTransferSOLLegacy(
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
   
-  // Compile transaction - this returns a Transaction object directly
   const transaction = compileTransaction(transactionMessage)
   
-  // Serialize to Base64 for display and wallet compatibility
   const transactionEncoder = getTransactionEncoder()
   const transactionBytes = transactionEncoder.encode(transaction)
   const base64String = Buffer.from(transactionBytes).toString('base64')
@@ -130,10 +107,6 @@ async function buildTransferSOLLegacy(
   return base64String
 }
 
-/**
- * Build a USDC (SPL Token) transfer transaction using @solana/kit and @solana/spl-token
- * USDC mint address on Solana: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
- */
 async function buildTransferUSDC(
   fromAddress: string,
   toAddress: string,
@@ -148,7 +121,6 @@ async function buildTransferUSDC(
   const fromPublicKey = new PublicKey(fromAddress)
   const toPublicKey = new PublicKey(toAddress)
   
-  // Derive associated token accounts for source and destination
   const sourceTokenAccount = getAssociatedTokenAddressSync(
     mintPublicKey,
     fromPublicKey
@@ -158,16 +130,13 @@ async function buildTransferUSDC(
     toPublicKey
   )
   
-  // Create instruction to create associated token account for destination if it doesn't exist
-  // This is idempotent - it won't fail if the account already exists
   const createATAInstructionWeb3 = createAssociatedTokenAccountIdempotentInstruction(
-    fromPublicKey, // payer
-    destinationTokenAccount, // associatedToken
-    toPublicKey, // owner
-    mintPublicKey // mint
+    fromPublicKey,
+    destinationTokenAccount,
+    toPublicKey,
+    mintPublicKey
   )
   
-  // Convert CreateATA instruction from @solana/web3.js to Instruction from @solana/kit
   const createATAInstruction: Instruction = {
     programAddress: address(createATAInstructionWeb3.programId.toBase58()),
     accounts: createATAInstructionWeb3.keys.map((key) => ({
@@ -179,7 +148,6 @@ async function buildTransferUSDC(
     data: new Uint8Array(createATAInstructionWeb3.data),
   }
   
-  // Create transfer instruction using @solana/spl-token
   const transferInstructionWeb3 = createTransferInstruction(
     sourceTokenAccount,
     destinationTokenAccount,
@@ -187,7 +155,6 @@ async function buildTransferUSDC(
     amountSmallestUnit
   )
   
-  // Convert Transfer instruction from @solana/web3.js to Instruction from @solana/kit
   const transferInstruction: Instruction = {
     programAddress: address(transferInstructionWeb3.programId.toBase58()),
     accounts: transferInstructionWeb3.keys.map((key) => ({
@@ -199,13 +166,9 @@ async function buildTransferUSDC(
     data: new Uint8Array(transferInstructionWeb3.data),
   }
 
-  // Create transaction message using pipe pattern as recommended by Solana Kit docs
-  // https://www.solanakit.com/docs/getting-started/build-transaction
-  // Get latest blockhash from RPC (using mainnet-beta by default)
   const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
   
-  // Add both instructions: first create the destination token account, then transfer
   const transactionMessage = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
@@ -214,10 +177,8 @@ async function buildTransferUSDC(
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
   
-  // Compile transaction - this returns a Transaction object directly
   const transaction = compileTransaction(transactionMessage)
   
-  // Serialize to Base64 for display and wallet compatibility
   const transactionEncoder = getTransactionEncoder()
   const transactionBytes = transactionEncoder.encode(transaction)
   const base64String = Buffer.from(transactionBytes).toString('base64')
@@ -225,10 +186,6 @@ async function buildTransferUSDC(
   return base64String
 }
 
-/**
- * Build a USDC (SPL Token) transfer transaction (Legacy) using @solana/kit and @solana/spl-token
- * USDC mint address on Solana: EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v
- */
 async function buildTransferUSDCLegacy(
   fromAddress: string,
   toAddress: string,
@@ -243,7 +200,6 @@ async function buildTransferUSDCLegacy(
   const fromPublicKey = new PublicKey(fromAddress)
   const toPublicKey = new PublicKey(toAddress)
   
-  // Derive associated token accounts for source and destination
   const sourceTokenAccount = getAssociatedTokenAddressSync(
     mintPublicKey,
     fromPublicKey
@@ -253,16 +209,13 @@ async function buildTransferUSDCLegacy(
     toPublicKey
   )
   
-  // Create instruction to create associated token account for destination if it doesn't exist
-  // This is idempotent - it won't fail if the account already exists
   const createATAInstructionWeb3 = createAssociatedTokenAccountIdempotentInstruction(
-    fromPublicKey, // payer
-    destinationTokenAccount, // associatedToken
-    toPublicKey, // owner
-    mintPublicKey // mint
+    fromPublicKey,
+    destinationTokenAccount,
+    toPublicKey,
+    mintPublicKey
   )
   
-  // Convert CreateATA instruction from @solana/web3.js to Instruction from @solana/kit
   const createATAInstruction: Instruction = {
     programAddress: address(createATAInstructionWeb3.programId.toBase58()),
     accounts: createATAInstructionWeb3.keys.map((key) => ({
@@ -274,7 +227,6 @@ async function buildTransferUSDCLegacy(
     data: new Uint8Array(createATAInstructionWeb3.data),
   }
   
-  // Create transfer instruction using @solana/spl-token
   const transferInstructionWeb3 = createTransferInstruction(
     sourceTokenAccount,
     destinationTokenAccount,
@@ -282,7 +234,6 @@ async function buildTransferUSDCLegacy(
     amountSmallestUnit
   )
   
-  // Convert Transfer instruction from @solana/web3.js to Instruction from @solana/kit
   const transferInstruction: Instruction = {
     programAddress: address(transferInstructionWeb3.programId.toBase58()),
     accounts: transferInstructionWeb3.keys.map((key) => ({
@@ -294,14 +245,9 @@ async function buildTransferUSDCLegacy(
     data: new Uint8Array(transferInstructionWeb3.data),
   }
 
-  // Create transaction message using pipe pattern as recommended by Solana Kit docs
-  // https://www.solanakit.com/docs/getting-started/build-transaction
-  // Get latest blockhash from RPC (using mainnet-beta by default)
   const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
   const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
   
-  // Legacy transaction: createTransactionMessage({ version: 'legacy' })
-  // Add both instructions: first create the destination token account, then transfer
   const transactionMessage = pipe(
     createTransactionMessage({ version: 'legacy' }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
@@ -310,10 +256,8 @@ async function buildTransferUSDCLegacy(
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
   
-  // Compile transaction - this returns a Transaction object directly
   const transaction = compileTransaction(transactionMessage)
   
-  // Serialize to Base64 for display and wallet compatibility
   const transactionEncoder = getTransactionEncoder()
   const transactionBytes = transactionEncoder.encode(transaction)
   const base64String = Buffer.from(transactionBytes).toString('base64')
@@ -321,19 +265,81 @@ async function buildTransferUSDCLegacy(
   return base64String
 }
 
-/**
- * Get example transactions for Solana
- */
+export interface PartiallySignedTransactionResult {
+  transaction: string
+  partialSignerPublicKey: string
+}
+
+async function buildPartiallySignedSOL(
+  fromAddress: string,
+  toAddress: string,
+  amount: number = 0.01
+): Promise<PartiallySignedTransactionResult> {
+  const SOL_DECIMALS = 9
+  const amountLamports = BigInt(Math.floor(amount * Math.pow(10, SOL_DECIMALS)))
+  
+  const fromAddr = address(fromAddress)
+  const toAddr = address(toAddress)
+  
+  const sourceSigner = createNoopSigner(fromAddr)
+  
+  const transferInstruction = getTransferSolInstruction({
+    source: sourceSigner,
+    destination: toAddr,
+    amount: amountLamports,
+  })
+
+  const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
+  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+  
+  const testKeypair = Keypair.generate()
+  const testPublicKey = testKeypair.publicKey
+  const testAddr = address(testPublicKey.toBase58())
+  
+  const testSourceSigner = createNoopSigner(testAddr)
+  const testTransferInstruction = getTransferSolInstruction({
+    source: testSourceSigner,
+    destination: toAddr,
+    amount: BigInt(0),
+  })
+  
+  const transactionMessageWithTestSigner = pipe(
+    createTransactionMessage({ version: 0 }),
+    (tx) => setTransactionMessageFeePayer(fromAddr, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
+    (tx) => appendTransactionMessageInstruction(testTransferInstruction, tx),
+  )
+  
+  const transactionWithTestSigner = compileTransaction(transactionMessageWithTestSigner)
+  
+  const transactionEncoder = getTransactionEncoder()
+  const transactionBytesReadonly = transactionEncoder.encode(transactionWithTestSigner)
+  const transactionBytesWithTestSigner = new Uint8Array(transactionBytesReadonly)
+  
+  const versionedTransaction = VersionedTransaction.deserialize(transactionBytesWithTestSigner)
+  
+  versionedTransaction.sign([testKeypair])
+  
+  const partiallySignedBytes = versionedTransaction.serialize()
+  const base64String = Buffer.from(partiallySignedBytes).toString('base64')
+  
+  return {
+    transaction: base64String,
+    partialSignerPublicKey: testPublicKey.toBase58(),
+  }
+}
+
 export const getSolanaTransactionExamples = async (
   fromAddress: string,
   toAddress: string,
   exampleType: SolanaExampleType
-): Promise<string> => {
+): Promise<string | PartiallySignedTransactionResult> => {
   if (!fromAddress) {
     throw new Error('From address is required')
   }
 
-  const defaultToAddress = toAddress || '11111111111111111111111111111111' // Placeholder address
+  const defaultToAddress = toAddress || '11111111111111111111111111111111'
 
   switch (exampleType) {
     case 'transferSOL':
@@ -344,6 +350,8 @@ export const getSolanaTransactionExamples = async (
       return await buildTransferSOLLegacy(fromAddress, defaultToAddress)
     case 'transferUSDCLegacy':
       return await buildTransferUSDCLegacy(fromAddress, defaultToAddress)
+    case 'partiallySignedSOL':
+      return await buildPartiallySignedSOL(fromAddress, defaultToAddress)
     default:
       throw new Error(`Unknown example type: ${exampleType}`)
   }

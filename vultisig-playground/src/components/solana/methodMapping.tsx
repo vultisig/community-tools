@@ -30,10 +30,6 @@ export const solanaMethodMapping: Record<string, MethodComponent> = {
   request: RequestMethod,
   signAndSendTransaction: SignAndSendTransactionMethod,
   features: FeaturesMethod,
-  // Not implemented - these are event handlers, not direct methods:
-  // handleNotification: Not a direct callable method
-  // on: Event listener registration
-  // off: Event listener removal
 }
 
 export function getMethodComponent(methodName: string): MethodComponent | null {
