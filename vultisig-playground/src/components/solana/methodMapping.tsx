@@ -7,6 +7,7 @@ import { IsConnectedMethod } from './IsConnectedMethod'
 import { PublicKeyMethod } from './PublicKeyMethod'
 import { RequestMethod } from './RequestMethod'
 import { SignAndSendTransactionMethod } from './SignAndSendTransactionMethod'
+import { SignAllTransactionsMethod } from './SignAllTransactionsMethod'
 import { FeaturesMethod } from './FeaturesMethod'
 import type { ReactElement } from 'react'
 
@@ -29,6 +30,7 @@ export const solanaMethodMapping: Record<string, MethodComponent> = {
   publicKey: PublicKeyMethod,
   request: RequestMethod,
   signAndSendTransaction: SignAndSendTransactionMethod,
+  signAllTransactions: SignAllTransactionsMethod,
   features: FeaturesMethod,
 }
 

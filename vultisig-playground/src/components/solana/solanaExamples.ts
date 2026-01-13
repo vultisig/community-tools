@@ -357,3 +357,22 @@ export const getSolanaTransactionExamples = async (
   }
 }
 
+export const getMultipleSolanaTransactions = async (
+  fromAddress: string,
+  toAddress: string
+): Promise<string[]> => {
+  if (!fromAddress) {
+    throw new Error('From address is required')
+  }
+
+  const defaultToAddress = toAddress || '11111111111111111111111111111111'
+
+  // Construir transacción de SOL (0.01 SOL)
+  const solTransaction = await buildTransferSOL(fromAddress, defaultToAddress, 0.01)
+  
+  // Construir transacción de USDC (0.1 USDC)
+  const usdcTransaction = await buildTransferUSDC(fromAddress, defaultToAddress, 0.1)
+
+  return [solTransaction, usdcTransaction]
+}
+

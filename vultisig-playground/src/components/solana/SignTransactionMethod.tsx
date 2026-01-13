@@ -204,10 +204,8 @@ export function SignTransactionMethod({ onResult, onError }: SignTransactionMeth
             }
             
             const isValid = verify(signature, messageData, publicKey.toBytes())
-            
             if (!isValid) {
               try {
-                const testPubKey = new PublicKey(publicKey.toBase58())
                 signatureResults.push({
                   index: i,
                   publicKey,
