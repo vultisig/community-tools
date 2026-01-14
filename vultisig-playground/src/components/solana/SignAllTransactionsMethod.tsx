@@ -12,9 +12,10 @@ interface SignAllTransactionsMethodProps {
 }
 
 export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransactionsMethodProps) {
-  const [transactionsBase64, setTransactionsBase64] = useState<string[]>(['', ''])
+  const [transactionsBase64, setTransactionsBase64] = useState<string[]>(Array(8).fill(''))
   const [fromAddress, setFromAddress] = useState<string>('')
   const [toAddress, setToAddress] = useState<string>('')
+  const [numTransactions, setNumTransactions] = useState<number>(8)
   const [loading, setLoading] = useState<boolean>(false)
   const [loadingPhantom, setLoadingPhantom] = useState<boolean>(false)
   const [loadingExample, setLoadingExample] = useState<boolean>(false)
@@ -64,10 +65,17 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
   }, [fromAddress, toAddress, onError])
 
   const handleSignAllTransactions = async (usePhantom: boolean = false): Promise<void> => {
-    const validTransactions = transactionsBase64.filter(tx => tx.trim())
+    // Only use the first numTransactions transactions
+    const transactionsToUse = transactionsBase64.slice(0, numTransactions)
+    const validTransactions = transactionsToUse.filter(tx => tx.trim())
     
     if (validTransactions.length === 0) {
       onError('At least one transaction (Base64) is required. Please load the example or enter transactions.')
+      return
+    }
+    
+    if (validTransactions.length < numTransactions) {
+      onError(`Expected ${numTransactions} transactions but only ${validTransactions.length} are provided.`)
       return
     }
 
@@ -174,49 +182,84 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
             disabled={loadingExample || !fromAddress}
             className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {loadingExample ? 'Loading...' : 'Load Example (SOL + USDC)'}
+            {loadingExample ? 'Loading...' : 'Load Example (8 Transactions)'}
           </button>
         </div>
         <p className="text-xs text-gray-500 mb-2">
-          Load an example with two transactions: 0.01 SOL transfer and 0.1 USDC transfer
+          Load an example with 8 transactions: mix of SOL and USDC transfers
         </p>
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Transaction 1 (SOL Transfer - Base64)
-          </label>
-          <textarea
-            value={transactionsBase64[0] || ''}
-            onChange={(e) => updateTransaction(0, e.target.value)}
-            placeholder="Enter Base64 encoded SOL transfer transaction"
-            className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[100px]"
-            rows={5}
+      <div>
+        <label className="block text-xs font-medium text-gray-700 mb-1">
+          Number of Transactions to Sign (1-8)
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            min="1"
+            max="8"
+            value={numTransactions}
+            onChange={(e) => {
+              const value = parseInt(e.target.value, 10)
+              if (!isNaN(value) && value >= 1 && value <= 8) {
+                setNumTransactions(value)
+              }
+            }}
+            className="w-20 px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <span className="text-xs text-gray-500">
+            Will sign the first {numTransactions} transaction{numTransactions !== 1 ? 's' : ''}
+          </span>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Transaction 2 (USDC Transfer - Base64)
-          </label>
-          <textarea
-            value={transactionsBase64[1] || ''}
-            onChange={(e) => updateTransaction(1, e.target.value)}
-            placeholder="Enter Base64 encoded USDC transfer transaction"
-            className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[100px]"
-            rows={5}
-          />
-        </div>
+      <div className="space-y-3">
+        {transactionsBase64.map((tx, index) => {
+          const isSOL = index % 2 === 0
+          const txType = isSOL ? 'SOL' : 'USDC'
+          const amounts = [
+            { sol: 0.01, usdc: 0.1 },
+            { sol: 0.02, usdc: 0.2 },
+            { sol: 0.01, usdc: 0.1 },
+            { sol: 0.015, usdc: 0.15 },
+          ]
+          const amount = isSOL 
+            ? amounts[Math.floor(index / 2)].sol 
+            : amounts[Math.floor(index / 2)].usdc
+          const isIncluded = index < numTransactions
+          
+          return (
+            <div key={index} className={!isIncluded ? 'opacity-50' : ''}>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Transaction {index + 1} ({txType} Transfer - {amount} {txType} - Base64)
+                {!isIncluded && <span className="ml-2 text-gray-400">(Not included)</span>}
+                {isIncluded && <span className="ml-2 text-green-600">(Will be signed)</span>}
+              </label>
+              <textarea
+                value={tx || ''}
+                onChange={(e) => updateTransaction(index, e.target.value)}
+                placeholder={`Enter Base64 encoded ${txType} transfer transaction`}
+                disabled={!isIncluded}
+                className={`w-full px-3 py-2 text-xs font-mono border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[100px] ${
+                  isIncluded 
+                    ? 'border-gray-300' 
+                    : 'border-gray-200 bg-gray-50 cursor-not-allowed'
+                }`}
+                rows={5}
+              />
+            </div>
+          )
+        })}
       </div>
 
       <div className="space-y-3">
         <button
           onClick={() => handleSignAllTransactions()}
-          disabled={loading || loadingPhantom || transactionsBase64.every(tx => !tx.trim())}
+          disabled={loading || loadingPhantom || transactionsBase64.slice(0, numTransactions).every(tx => !tx.trim())}
           className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? 'Signing All Transactions...' : 'Sign All Transactions'}
+          {loading ? `Signing ${numTransactions} Transaction${numTransactions !== 1 ? 's' : ''}...` : `Sign ${numTransactions} Transaction${numTransactions !== 1 ? 's' : ''}`}
         </button>
         
         <div className="border-t border-gray-200 pt-3">
@@ -225,13 +268,13 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
           </div>
           <button
             onClick={handleSignAllTransactionsWithPhantom}
-            disabled={loadingPhantom || loading || transactionsBase64.every(tx => !tx.trim()) || !((window as unknown as { phantom?: { solana?: unknown } }).phantom?.solana)}
+            disabled={loadingPhantom || loading || transactionsBase64.slice(0, numTransactions).every(tx => !tx.trim()) || !((window as unknown as { phantom?: { solana?: unknown } }).phantom?.solana)}
             className="w-full px-3 py-2 text-xs bg-purple-50 border border-purple-200 text-purple-700 rounded hover:bg-purple-100 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors"
-            title="Sign all transactions with Phantom extension (for comparison)"
+            title="Sign transactions with Phantom extension (for comparison)"
           >
             {loadingPhantom || loading
-              ? (loadingPhantom ? 'Signing All with Phantom...' : 'Signing All...')
-              : 'Sign All Transactions with Phantom'}
+              ? (loadingPhantom ? `Signing ${numTransactions} with Phantom...` : `Signing ${numTransactions}...`)
+              : `Sign ${numTransactions} Transaction${numTransactions !== 1 ? 's' : ''} with Phantom`}
           </button>
         </div>
       </div>

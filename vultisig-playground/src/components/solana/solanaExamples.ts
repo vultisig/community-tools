@@ -367,12 +367,16 @@ export const getMultipleSolanaTransactions = async (
 
   const defaultToAddress = toAddress || '11111111111111111111111111111111'
 
-  // Construir transacción de SOL (0.01 SOL)
-  const solTransaction = await buildTransferSOL(fromAddress, defaultToAddress, 0.01)
-  
-  // Construir transacción de USDC (0.1 USDC)
-  const usdcTransaction = await buildTransferUSDC(fromAddress, defaultToAddress, 0.1)
+  const transactions = await Promise.all([
+    buildTransferSOL(fromAddress, defaultToAddress, 0.01),      // Transaction 1: 0.01 SOL
+    buildTransferUSDC(fromAddress, defaultToAddress, 0.1),     // Transaction 2: 0.1 USDC
+    buildTransferSOL(fromAddress, defaultToAddress, 0.02),      // Transaction 3: 0.02 SOL
+    buildTransferUSDC(fromAddress, defaultToAddress, 0.2),       // Transaction 4: 0.2 USDC
+    buildTransferSOL(fromAddress, defaultToAddress, 0.01),       // Transaction 5: 0.01 SOL
+    buildTransferUSDC(fromAddress, defaultToAddress, 0.1),       // Transaction 6: 0.1 USDC
+    buildTransferSOL(fromAddress, defaultToAddress, 0.015),      // Transaction 7: 0.015 SOL
+    buildTransferUSDC(fromAddress, defaultToAddress, 0.15),      // Transaction 8: 0.15 USDC
+  ])
 
-  return [solTransaction, usdcTransaction]
+  return transactions
 }
-
