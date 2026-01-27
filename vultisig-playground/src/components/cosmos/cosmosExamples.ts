@@ -55,7 +55,31 @@ export const getExampleMsgs = (signer: string) => ({
       },
     },
   ],
+  withMemo: [
+    {
+      type: 'cosmos-sdk/MsgSend',
+      value: {
+        amount: [
+          {
+            amount: '1000',
+            denom: 'uatom',
+          },
+        ],
+        from_address: signer || 'cosmos1...',
+        to_address: signer || 'cosmos1...',
+      },
+    },
+  ],
 })
+
+export const getExampleMemo = (example: 'withMemo'): string => {
+  switch (example) {
+    case 'withMemo':
+      return 'Test memo for transaction'
+    default:
+      return ''
+  }
+}
 
 export const getExampleDirectMsgs = (signer: string) => ({
   singleSend: [

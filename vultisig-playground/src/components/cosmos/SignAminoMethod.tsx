@@ -3,11 +3,13 @@ import { StargateClient, defaultRegistryTypes, createDefaultAminoConverters } fr
 import { Registry, makeAuthInfoBytes, encodePubkey } from '@cosmjs/proto-signing'
 import { TxRaw } from 'cosmjs-types/cosmos/tx/v1beta1/tx'
 import { SignMode } from 'cosmjs-types/cosmos/tx/signing/v1beta1/signing'
-import { fromBase64 } from '@cosmjs/encoding'
+import { fromBase64, fromBech32 } from '@cosmjs/encoding'
 import { Int53 } from '@cosmjs/math'
 import { useWalletConnection } from '../../hooks/useWalletConnection'
-import { getExampleMsgs } from './cosmosExamples'
+import { getExampleMsgs, getExampleMemo } from './cosmosExamples'
+import { getThorchainExampleAminoMsgs } from '../thorchain/thorchainExamples'
 import { fetchCosmosAccountInfo, getRpcUrl } from './cosmosUtils'
+import { getThorchainRegistryTypes } from '../../lib/messages/types/thorchainRegistry'
 
 interface SignAminoMethodProps {
   provider: unknown
@@ -30,10 +32,12 @@ interface AminoSignDoc {
 
 const COSMOS_CHAIN_IDS = [
   { value: 'cosmoshub-4', label: 'Cosmos Hub (cosmoshub-4)' },
+  { value: 'thorchain-1', label: 'THORChain (thorchain-1)' },
 ]
 
 const COSMOS_FEE_DENOMS = [
   { value: 'uatom', label: 'uatom (ATOM)' },
+  { value: 'rune', label: 'rune (RUNE)' },
 ]
 
 export function SignAminoMethod({ onResult, onError }: SignAminoMethodProps) {
@@ -99,6 +103,8 @@ export function SignAminoMethod({ onResult, onError }: SignAminoMethodProps) {
     // Auto-update fee denom based on chain ID
     if (chainId === 'cosmoshub-4') {
       setFeeDenom('uatom')
+    } else if (chainId === 'thorchain-1') {
+      setFeeDenom('rune')
     }
   }, [chainId])
 
@@ -191,12 +197,54 @@ export function SignAminoMethod({ onResult, onError }: SignAminoMethodProps) {
     }
     
     // Convert Amino signed transaction to TxRaw protobuf for broadcastTxSync
-    const registry = new Registry(defaultRegistryTypes)
+    // Create registry with default types and THORChain types if needed
+    const registryTypes = chainId === 'thorchain-1' 
+      ? [...defaultRegistryTypes, ...getThorchainRegistryTypes()]
+      : defaultRegistryTypes
+    
+    const registry = new Registry(registryTypes)
     const aminoTypes = createDefaultAminoConverters()
     
     // Convert Amino messages to protobuf
     const protoMsgs = signedObj.signed.msgs.map((msg) => {
       const aminoMsg = msg as { type: string; value: Record<string, unknown> }
+      
+      // Handle THORChain messages specially
+      if (chainId === 'thorchain-1') {
+        if (aminoMsg.type === 'thorchain/MsgSend') {
+          // Convert THORChain Amino MsgSend to protobuf
+          const value = aminoMsg.value as {
+            from_address: string
+            to_address: string
+            amount: Array<{ amount: string; denom: string }>
+          }
+          return {
+            typeUrl: '/types.MsgSend',
+            value: {
+              fromAddress: fromBech32(value.from_address).data,
+              toAddress: fromBech32(value.to_address).data,
+              amount: value.amount,
+            },
+          }
+        } else if (aminoMsg.type === 'thorchain/MsgDeposit') {
+          // Convert THORChain Amino MsgDeposit to protobuf
+          const value = aminoMsg.value as {
+            memo: string
+            signer: string
+            coins: Array<unknown>
+          }
+          return {
+            typeUrl: '/types.MsgDeposit',
+            value: {
+              memo: value.memo,
+              signer: fromBech32(value.signer).data,
+              coins: value.coins,
+            },
+          }
+        }
+      }
+      
+      // For standard Cosmos SDK messages, use amino converters
       const converterEntry = Object.entries(aminoTypes).find(([_, conv]) => 
         conv && typeof conv === 'object' && 'aminoType' in conv && (conv as { aminoType: string }).aminoType === aminoMsg.type
       )
@@ -287,9 +335,40 @@ export function SignAminoMethod({ onResult, onError }: SignAminoMethodProps) {
     }
   }
 
-  const handleLoadExample = (example: 'singleSend' | 'multiSend'): void => {
-    const exampleMsgs = getExampleMsgs(signer)
-    setMsgsJson(JSON.stringify(exampleMsgs[example], null, 2))
+  const handleLoadExample = (example: 'singleSend' | 'multiSend' | 'withMemo' | 'deposit'): void => {
+    // Use connectedAddress if available, otherwise use signer
+    const addressToUse = connectedAddress || signer
+    
+    if (chainId === 'thorchain-1') {
+      const exampleMsgs = getThorchainExampleAminoMsgs(addressToUse)
+      if (example === 'deposit' && exampleMsgs.deposit) {
+        setMsgsJson(JSON.stringify(exampleMsgs.deposit, null, 2))
+        setMemo('')
+      } else if (example === 'singleSend') {
+        setMsgsJson(JSON.stringify(exampleMsgs.singleSend, null, 2))
+        setMemo('')
+      } else if (example === 'multiSend') {
+        setMsgsJson(JSON.stringify(exampleMsgs.multiSend, null, 2))
+        setMemo('')
+      } else if (example === 'withMemo') {
+        // For THORChain, use singleSend with memo
+        setMsgsJson(JSON.stringify(exampleMsgs.singleSend, null, 2))
+        setMemo('Test memo for THORChain transaction')
+      }
+    } else {
+      // Don't allow deposit for non-THORChain chains
+      if (example === 'deposit') {
+        onError('Deposit example is only available for THORChain')
+        return
+      }
+      const exampleMsgs = getExampleMsgs(addressToUse)
+      setMsgsJson(JSON.stringify(exampleMsgs[example], null, 2))
+      if (example === 'withMemo') {
+        setMemo(getExampleMemo('withMemo'))
+      } else {
+        setMemo('')
+      }
+    }
   }
 
   return (
@@ -416,6 +495,20 @@ export function SignAminoMethod({ onResult, onError }: SignAminoMethodProps) {
             >
               Example: Multi-Send
             </button>
+            <button
+              onClick={() => handleLoadExample('withMemo')}
+              className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+            >
+              Example: With Memo
+            </button>
+            {chainId === 'thorchain-1' && (
+              <button
+                onClick={() => handleLoadExample('deposit')}
+                className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded hover:bg-gray-200"
+              >
+                Example: Deposit
+              </button>
+            )}
           </div>
         </div>
         <textarea

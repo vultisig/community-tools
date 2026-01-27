@@ -79,3 +79,85 @@ export const getThorchainExampleDirectMsgs = (signer: string) => ({
     },
   ],
 })
+
+export const getThorchainExampleAminoMsgs = (signer: string) => ({
+  singleSend: [
+    {
+      type: 'thorchain/MsgSend',
+      value: {
+        from_address: signer || 'thor1...',
+        to_address: signer || 'thor1...',
+        amount: [
+          {
+            amount: '1000',
+            denom: 'rune',
+          },
+        ],
+      },
+    },
+  ],
+  multiSend: [
+    {
+      type: 'thorchain/MsgSend',
+      value: {
+        from_address: signer || 'thor1...',
+        to_address: signer || 'thor1...',
+        amount: [
+          {
+            amount: '1000',
+            denom: 'rune',
+          },
+        ],
+      },
+    },
+    {
+      type: 'thorchain/MsgSend',
+      value: {
+        from_address: signer || 'thor1...',
+        to_address: signer || 'thor1...',
+        amount: [
+          {
+            amount: '2000',
+            denom: 'rune',
+          },
+        ],
+      },
+    },
+    {
+      type: 'thorchain/MsgSend',
+      value: {
+        from_address: signer || 'thor1...',
+        to_address: signer || 'thor1...',
+        amount: [
+          {
+            amount: '3000',
+            denom: 'rune',
+          },
+        ],
+      },
+    },
+  ],
+  deposit: [
+    {
+      type: 'thorchain/MsgDeposit',
+      value: {
+        memo: 'secure-:ltc1qc56q990vzj3a89d544dvj28grrpxqq0pw64hq4',
+        signer: signer || 'thor1...',
+        coins: [
+          {
+            asset: {
+              chain: 'LTC',
+              symbol: 'LTC',
+              ticker: 'LTC',
+              synth: false,
+              trade: false,
+              secured: true,
+            },
+            decimals: 0,
+            amount: '3000000',
+          },
+        ],
+      },
+    },
+  ],
+})
