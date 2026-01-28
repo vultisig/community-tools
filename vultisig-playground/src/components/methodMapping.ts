@@ -23,13 +23,13 @@ interface MethodComponentProps {
 
 type MethodComponent = (props: MethodComponentProps) => ReactElement
 
-export function getMethodComponent(chainName: string, methodName: string): MethodComponent | null {
+export function getMethodComponent(chainName: string, providerName: string, methodName: string): MethodComponent | null {
   switch (chainName.toLowerCase()) {
     case 'bitcoin':
     case 'btc':
       return getBitcoinMethodComponent(methodName)
     case 'cosmos':
-      return getCosmosMethodComponent(methodName)
+      return getCosmosMethodComponent(providerName, methodName)
     case 'ethereum':
     case 'eth':
       return getEthereumMethodComponent(methodName)
