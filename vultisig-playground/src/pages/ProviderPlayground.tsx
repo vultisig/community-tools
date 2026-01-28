@@ -148,7 +148,7 @@ function ProviderPlayground() {
                     
                     {(() => {
                       const methodResult = methodResults[selectedMethod]
-                      const MethodComponent = getMethodComponent(chain || '', selectedMethod)
+                      const MethodComponent = getMethodComponent(chain || '', provider || '', selectedMethod)
                       const { handleResult, handleError } = createHandlers(selectedMethod)
 
                       return (
