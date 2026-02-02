@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { tronMethodMapping } from '../components/tron/methodMapping'
+import { ethereumMethodMapping } from '../components/ethereum/methodMapping'
 
 export function useProviderMethods(providerName: string) {
   const [methods, setMethods] = useState<string[]>([])
@@ -53,6 +54,15 @@ export function useProviderMethods(providerName: string) {
     if (providerName === 'tron') {
       const tronMethods = Object.keys(tronMethodMapping)
       for (const method of tronMethods) {
+        if (!methodNames.includes(method)) {
+          methodNames.push(method)
+        }
+      }
+    }
+
+    if (providerName === 'ethereum') {
+      const ethMethods = Object.keys(ethereumMethodMapping)
+      for (const method of ethMethods) {
         if (!methodNames.includes(method)) {
           methodNames.push(method)
         }

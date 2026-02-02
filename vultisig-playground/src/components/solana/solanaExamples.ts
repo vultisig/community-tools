@@ -21,6 +21,16 @@ import { PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { getTransactionEncoder } from '@solana/transactions'
 import { Buffer } from 'buffer'
 
+const SOLANA_RPC_URL = 'https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW'
+
+type Blockhash = Awaited<ReturnType<ReturnType<ReturnType<typeof createSolanaRpc>['getLatestBlockhash']>['send']>>['value']
+
+async function getLatestBlockhashOnce(): Promise<Blockhash> {
+  const rpc = createSolanaRpc(SOLANA_RPC_URL)
+  const { value } = await rpc.getLatestBlockhash().send()
+  return value
+}
+
 export type SolanaExampleType = 'transferSOL' | 'transferUSDC' | 'transferSOLLegacy' | 'transferUSDCLegacy' | 'partiallySignedSOL'
 
 export const getSolanaExampleDescriptions = (): Record<SolanaExampleType, string> => ({
@@ -34,7 +44,8 @@ export const getSolanaExampleDescriptions = (): Record<SolanaExampleType, string
 async function buildTransferSOL(
   fromAddress: string,
   toAddress: string,
-  amount: number = 0.01
+  amount: number = 0.01,
+  latestBlockhash?: Blockhash
 ): Promise<string> {
   const SOL_DECIMALS = 9
   const amountLamports = BigInt(Math.floor(amount * Math.pow(10, SOL_DECIMALS)))
@@ -50,13 +61,12 @@ async function buildTransferSOL(
     amount: amountLamports,
   })
 
-  const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+  const blockhash = latestBlockhash ?? await getLatestBlockhashOnce()
   
   const transactionMessage = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
   
@@ -72,7 +82,8 @@ async function buildTransferSOL(
 async function buildTransferSOLLegacy(
   fromAddress: string,
   toAddress: string,
-  amount: number = 0.01
+  amount: number = 0.01,
+  latestBlockhash?: Blockhash
 ): Promise<string> {
   const SOL_DECIMALS = 9
   const amountLamports = BigInt(Math.floor(amount * Math.pow(10, SOL_DECIMALS)))
@@ -88,13 +99,12 @@ async function buildTransferSOLLegacy(
     amount: amountLamports,
   })
 
-  const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+  const blockhash = latestBlockhash ?? await getLatestBlockhashOnce()
   
   const transactionMessage = pipe(
     createTransactionMessage({ version: 'legacy' }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
   
@@ -110,7 +120,8 @@ async function buildTransferSOLLegacy(
 async function buildTransferUSDC(
   fromAddress: string,
   toAddress: string,
-  amount: number = 0.1
+  amount: number = 0.1,
+  latestBlockhash?: Blockhash
 ): Promise<string> {
   const USDC_DECIMALS = 6
   const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -166,13 +177,12 @@ async function buildTransferUSDC(
     data: new Uint8Array(transferInstructionWeb3.data),
   }
 
-  const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+  const blockhash = latestBlockhash ?? await getLatestBlockhashOnce()
   
   const transactionMessage = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
     (tx) => appendTransactionMessageInstruction(createATAInstruction, tx),
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
@@ -189,7 +199,8 @@ async function buildTransferUSDC(
 async function buildTransferUSDCLegacy(
   fromAddress: string,
   toAddress: string,
-  amount: number = 0.1
+  amount: number = 0.1,
+  latestBlockhash?: Blockhash
 ): Promise<string> {
   const USDC_DECIMALS = 6
   const USDC_MINT = 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v'
@@ -245,13 +256,12 @@ async function buildTransferUSDCLegacy(
     data: new Uint8Array(transferInstructionWeb3.data),
   }
 
-  const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+  const blockhash = latestBlockhash ?? await getLatestBlockhashOnce()
   
   const transactionMessage = pipe(
     createTransactionMessage({ version: 'legacy' }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
     (tx) => appendTransactionMessageInstruction(createATAInstruction, tx),
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
   )
@@ -273,7 +283,8 @@ export interface PartiallySignedTransactionResult {
 async function buildPartiallySignedSOL(
   fromAddress: string,
   toAddress: string,
-  amount: number = 0.01
+  amount: number = 0.01,
+  latestBlockhash?: Blockhash
 ): Promise<PartiallySignedTransactionResult> {
   const SOL_DECIMALS = 9
   const amountLamports = BigInt(Math.floor(amount * Math.pow(10, SOL_DECIMALS)))
@@ -289,8 +300,7 @@ async function buildPartiallySignedSOL(
     amount: amountLamports,
   })
 
-  const rpc = createSolanaRpc('https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW')
-  const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
+  const blockhash = latestBlockhash ?? await getLatestBlockhashOnce()
   
   const testKeypair = Keypair.generate()
   const testPublicKey = testKeypair.publicKey
@@ -306,7 +316,7 @@ async function buildPartiallySignedSOL(
   const transactionMessageWithTestSigner = pipe(
     createTransactionMessage({ version: 0 }),
     (tx) => setTransactionMessageFeePayer(fromAddr, tx),
-    (tx) => setTransactionMessageLifetimeUsingBlockhash(latestBlockhash, tx),
+    (tx) => setTransactionMessageLifetimeUsingBlockhash(blockhash, tx),
     (tx) => appendTransactionMessageInstruction(transferInstruction, tx),
     (tx) => appendTransactionMessageInstruction(testTransferInstruction, tx),
   )
@@ -357,26 +367,45 @@ export const getSolanaTransactionExamples = async (
   }
 }
 
+export interface TransactionMeta {
+  type: 'SOL' | 'USDC'
+  amount: number
+}
+
+export interface MultipleSolanaTransactionsResult {
+  transactions: string[]
+  meta: TransactionMeta[]
+}
+
 export const getMultipleSolanaTransactions = async (
   fromAddress: string,
   toAddress: string
-): Promise<string[]> => {
+): Promise<MultipleSolanaTransactionsResult> => {
   if (!fromAddress) {
     throw new Error('From address is required')
   }
 
   const defaultToAddress = toAddress || '11111111111111111111111111111111'
 
-  const transactions = await Promise.all([
-    buildTransferSOL(fromAddress, defaultToAddress, 0.01),      // Transaction 1: 0.01 SOL
-    buildTransferUSDC(fromAddress, defaultToAddress, 0.1),     // Transaction 2: 0.1 USDC
-    buildTransferSOL(fromAddress, defaultToAddress, 0.02),      // Transaction 3: 0.02 SOL
-    buildTransferUSDC(fromAddress, defaultToAddress, 0.2),       // Transaction 4: 0.2 USDC
-    buildTransferSOL(fromAddress, defaultToAddress, 0.01),       // Transaction 5: 0.01 SOL
-    buildTransferUSDC(fromAddress, defaultToAddress, 0.1),       // Transaction 6: 0.1 USDC
-    buildTransferSOL(fromAddress, defaultToAddress, 0.015),      // Transaction 7: 0.015 SOL
-    buildTransferUSDC(fromAddress, defaultToAddress, 0.15),      // Transaction 8: 0.15 USDC
-  ])
+  const blockhash = await getLatestBlockhashOnce()
 
-  return transactions
+  const solAmounts = [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10]
+  const usdcAmounts = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  const count = 20
+  const meta: TransactionMeta[] = Array.from({ length: count }, (_, i) => {
+    const idx = Math.floor(i / 2)
+    return i % 2 === 0
+      ? { type: 'SOL' as const, amount: solAmounts[idx] }
+      : { type: 'USDC' as const, amount: usdcAmounts[idx] }
+  })
+
+  const promises = Array.from({ length: count }, (_, i) => {
+    const idx = Math.floor(i / 2)
+    return i % 2 === 0
+      ? buildTransferSOL(fromAddress, defaultToAddress, solAmounts[idx], blockhash)
+      : buildTransferUSDC(fromAddress, defaultToAddress, usdcAmounts[idx], blockhash)
+  })
+
+  const transactions = await Promise.all(promises)
+  return { transactions, meta }
 }

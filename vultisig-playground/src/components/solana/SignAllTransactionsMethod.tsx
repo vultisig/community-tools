@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react'
 import { VersionedTransaction } from '@solana/web3.js'
 import { Buffer } from 'buffer'
 import type { SolanaWalletProvider } from './types'
-import { getMultipleSolanaTransactions } from './solanaExamples'
+import { getMultipleSolanaTransactions, type TransactionMeta } from './solanaExamples'
 
 interface SignAllTransactionsMethodProps {
   provider: unknown
@@ -12,7 +12,9 @@ interface SignAllTransactionsMethodProps {
 }
 
 export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransactionsMethodProps) {
-  const [transactionsBase64, setTransactionsBase64] = useState<string[]>(Array(8).fill(''))
+  const SLOTS = 20
+  const [transactionsBase64, setTransactionsBase64] = useState<string[]>(Array(SLOTS).fill(''))
+  const [transactionMeta, setTransactionMeta] = useState<(TransactionMeta | null)[]>(Array(SLOTS).fill(null))
   const [fromAddress, setFromAddress] = useState<string>('')
   const [toAddress, setToAddress] = useState<string>('')
   const [numTransactions, setNumTransactions] = useState<number>(8)
@@ -53,9 +55,19 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
     }
 
     setLoadingExample(true)
+    onError('')
     try {
-      const transactions = await getMultipleSolanaTransactions(fromAddress, toAddress)
-      setTransactionsBase64(transactions)
+      const { transactions, meta } = await getMultipleSolanaTransactions(fromAddress, toAddress)
+      if (!Array.isArray(transactions) || transactions.length === 0) {
+        onError('No se recibieron transacciones del ejemplo')
+        return
+      }
+      const asStrings = transactions.map((t) => (typeof t === 'string' ? t : ''))
+      const filled = [...asStrings, ...Array(Math.max(0, SLOTS - asStrings.length)).fill('')].slice(0, SLOTS)
+      const metaFilled = [...meta, ...Array(Math.max(0, SLOTS - meta.length)).fill(null)].slice(0, SLOTS) as (TransactionMeta | null)[]
+      setTransactionsBase64(filled)
+      setTransactionMeta(metaFilled)
+      setNumTransactions(asStrings.length)
     } catch (err) {
       console.error('Error loading example:', err)
       onError((err as Error).message || 'Failed to load example')
@@ -130,6 +142,11 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
     const newTransactions = [...transactionsBase64]
     newTransactions[index] = value
     setTransactionsBase64(newTransactions)
+    setTransactionMeta((prev) => {
+      const next = [...prev]
+      next[index] = null
+      return next
+    })
   }
 
   return (
@@ -182,27 +199,27 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
             disabled={loadingExample || !fromAddress}
             className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
           >
-            {loadingExample ? 'Loading...' : 'Load Example (8 Transactions)'}
+            {loadingExample ? 'Loading...' : 'Load Example (20 Transactions)'}
           </button>
         </div>
         <p className="text-xs text-gray-500 mb-2">
-          Load an example with 8 transactions: mix of SOL and USDC transfers
+          Load an example with 20 transactions: mix of SOL and USDC transfers
         </p>
       </div>
 
       <div>
         <label className="block text-xs font-medium text-gray-700 mb-1">
-          Number of Transactions to Sign (1-8)
+          Number of Transactions to Sign (1-20)
         </label>
         <div className="flex items-center gap-2">
           <input
             type="number"
             min="1"
-            max="8"
+            max="20"
             value={numTransactions}
             onChange={(e) => {
               const value = parseInt(e.target.value, 10)
-              if (!isNaN(value) && value >= 1 && value <= 8) {
+              if (!isNaN(value) && value >= 1 && value <= SLOTS) {
                 setNumTransactions(value)
               }
             }}
@@ -216,30 +233,24 @@ export function SignAllTransactionsMethod({ onResult, onError }: SignAllTransact
 
       <div className="space-y-3">
         {transactionsBase64.map((tx, index) => {
-          const isSOL = index % 2 === 0
-          const txType = isSOL ? 'SOL' : 'USDC'
-          const amounts = [
-            { sol: 0.01, usdc: 0.1 },
-            { sol: 0.02, usdc: 0.2 },
-            { sol: 0.01, usdc: 0.1 },
-            { sol: 0.015, usdc: 0.15 },
-          ]
-          const amount = isSOL 
-            ? amounts[Math.floor(index / 2)].sol 
-            : amounts[Math.floor(index / 2)].usdc
           const isIncluded = index < numTransactions
           
           return (
             <div key={index} className={!isIncluded ? 'opacity-50' : ''}>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Transaction {index + 1} ({txType} Transfer - {amount} {txType} - Base64)
+                Transaction {index + 1}
+                {transactionMeta[index] != null && (
+                  <span className="ml-2 text-gray-600">
+                    ({transactionMeta[index]!.amount} {transactionMeta[index]!.type})
+                  </span>
+                )}
                 {!isIncluded && <span className="ml-2 text-gray-400">(Not included)</span>}
                 {isIncluded && <span className="ml-2 text-green-600">(Will be signed)</span>}
               </label>
               <textarea
                 value={tx || ''}
                 onChange={(e) => updateTransaction(index, e.target.value)}
-                placeholder={`Enter Base64 encoded ${txType} transfer transaction`}
+                placeholder="Enter Base64 encoded transaction"
                 disabled={!isIncluded}
                 className={`w-full px-3 py-2 text-xs font-mono border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[100px] ${
                   isIncluded 
