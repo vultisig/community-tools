@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { SignTypedDataV4Method } from './SignTypedDataV4Method'
+import { RequestMethod } from './RequestMethod'
 
 interface MethodComponentProps {
   provider: unknown
@@ -10,8 +10,9 @@ interface MethodComponentProps {
 
 type MethodComponent = (props: MethodComponentProps) => ReactElement
 
+// All Ethereum actions (eth_sendTransaction, eth_signTypedData_v4, etc.) go through a single "request" tab with dropdown.
 export const ethereumMethodMapping: Record<string, MethodComponent> = {
-  eth_signTypedData_v4: SignTypedDataV4Method,
+  request: RequestMethod,
 }
 
 export function getMethodComponent(methodName: string): MethodComponent | null {

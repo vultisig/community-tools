@@ -90,6 +90,8 @@ const DEFAULT_TYPED_DATA = `{
   }
 }`
 
+export { DEFAULT_TYPED_DATA }
+
 export function SignTypedDataV4Method({ provider, onResult, onError }: SignTypedDataV4MethodProps) {
   const [address, setAddress] = useState<string>('')
   const [typedDataJson, setTypedDataJson] = useState<string>(DEFAULT_TYPED_DATA)
