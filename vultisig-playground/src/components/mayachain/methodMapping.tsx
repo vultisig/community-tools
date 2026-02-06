@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react'
+import { RequestMethod } from './RequestMethod'
 
 interface MethodComponentProps {
   provider: unknown
@@ -9,7 +10,10 @@ interface MethodComponentProps {
 
 type MethodComponent = (props: MethodComponentProps) => ReactElement
 
-export const mayachainMethodMapping: Record<string, MethodComponent> = {}
+// All MayaChain actions (send_transaction, deposit_transaction) go through a single "request" tab with dropdown.
+export const mayachainMethodMapping: Record<string, MethodComponent> = {
+  request: RequestMethod,
+}
 
 export function getMethodComponent(methodName: string): MethodComponent | null {
   return mayachainMethodMapping[methodName] || null
