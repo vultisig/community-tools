@@ -4,6 +4,7 @@ import {
   getTronExampleDescriptions,
   type TronTransaction,
 } from './tronExamples'
+import { runTronWebMethod, type TronWebMethodId } from './tronWebHandlers'
 import { TronWeb } from 'tronweb'
 
 interface TronWebMethodProps {
@@ -19,11 +20,57 @@ type TronExampleType =
 
 const availableMethods = [
   { value: 'defaultAddress', label: 'tronWeb.defaultAddress.base58', description: 'Get default Tron address' },
+  { value: 'signMessage', label: 'signMessage (legacy)', description: 'Sign a message (hex) and verify signature' },
+  { value: 'signMessageV2', label: 'signMessageV2 (TIP-191)', description: 'Sign a message (plain text) and verify signature' },
   { value: 'signAndBroadcast', label: 'trx.sign + broadcast', description: 'Sign and broadcast a transaction' },
 ]
 
+function getExecuteButtonLabel(method: string, loading: boolean): string {
+  if (loading) {
+    switch (method) {
+      case 'signAndBroadcast':
+        return 'Signing & Broadcasting...'
+      case 'signMessage':
+      case 'signMessageV2':
+        return 'Signing & Verifying...'
+      case 'defaultAddress':
+      default:
+        return 'Getting Address...'
+    }
+  }
+  switch (method) {
+    case 'signAndBroadcast':
+      return 'Sign & Broadcast Transaction'
+    case 'signMessage':
+      return 'Sign Message & Verify (legacy)'
+    case 'signMessageV2':
+      return 'Sign Message & Verify (V2)'
+    case 'defaultAddress':
+    default:
+      return 'Get Default Address'
+  }
+}
+
+function getTronLinkButtonLabel(method: string, loadingTronLink: boolean, loading: boolean): string {
+  if (loadingTronLink || loading) {
+    return loadingTronLink ? 'Signing with TronLink...' : 'Broadcasting...'
+  }
+  switch (method) {
+    case 'signAndBroadcast':
+      return 'Sign & Broadcast with TronLink'
+    case 'signMessage':
+      return 'Sign Message (legacy) with TronLink'
+    case 'signMessageV2':
+      return 'Sign Message (V2) with TronLink'
+    case 'defaultAddress':
+    default:
+      return 'Get Default Address with TronLink'
+  }
+}
+
 function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
   const [method, setMethod] = useState<string>('defaultAddress')
+  const [messageToSign, setMessageToSign] = useState<string>('Hello Tron!')
   const [selectedExample, setSelectedExample] = useState<TronExampleType | ''>('')
   const [transactionJson, setTransactionJson] = useState<string>('')
   const [fromAddress, setFromAddress] = useState<string>('')
@@ -32,6 +79,8 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
   const [loadingTronLink, setLoadingTronLink] = useState<boolean>(false)
   const [loadingAddress, setLoadingAddress] = useState<boolean>(false)
   const [loadingExample, setLoadingExample] = useState<boolean>(false)
+  /** Only for signMessage: true = with header, false = without header */
+  const [signMessageUseTronHeader, setSignMessageUseTronHeader] = useState<boolean>(false)
 
   const exampleDescriptions = getTronExampleDescriptions()
 
@@ -132,75 +181,15 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
     }
 
     try {
-      if (method === 'defaultAddress') {
-        let defaultAddress = tronWeb?.defaultAddress
-        
-        if (useTronLink && (!defaultAddress?.base58)) {
-          const providerObj = tronProvider as { request?: (params: { method: string; params?: unknown[] }) => Promise<unknown> }
-          if (providerObj.request) {
-            await providerObj.request({
-              method: 'tron_requestAccounts',
-              params: [],
-            })
-            const windowWithTron = window as unknown as {
-              tronWeb?: TronWeb
-              tronLink?: { tronWeb?: TronWeb }
-            }
-            tronWeb = (windowWithTron?.tronWeb || windowWithTron?.tronLink?.tronWeb) || null
-            if (tronWeb) {
-              defaultAddress = tronWeb.defaultAddress
-            }
-          }
-        }
-        
-        if (!defaultAddress?.base58) {
-          throw new Error('Please use the "request" method first to connect your Tron account. defaultAddress.base58 is not available in tronWeb.')
-        }
-
-        const address = defaultAddress.base58
-        onResult(address)
-      } else if (method === 'signAndBroadcast') {
-        if (!transactionJson.trim()) {
-          throw new Error('Transaction JSON is required')
-        }
-
-        let transaction
-        try {
-          transaction = JSON.parse(transactionJson)
-        } catch (e) {
-          throw new Error('Invalid JSON format for transaction')
-        }
-
-        if (!tronWeb?.trx || typeof tronWeb.trx !== 'object') {
-          throw new Error('trx object not available in tronWeb')
-        }
-
-        const trx = tronWeb.trx
-
-        if (!trx.sign || typeof trx.sign !== 'function') {
-          throw new Error('trx.sign method not available')
-        }
-
-        const signMethod = trx.sign
-        const signedTransaction = await signMethod(transaction)
-
-        let broadcastResult: unknown = null
-        if (tronWeb.trx.sendRawTransaction && typeof tronWeb.trx.sendRawTransaction === 'function') {
-          try {
-            broadcastResult = await tronWeb.trx.sendRawTransaction(signedTransaction)
-          } catch (e) {
-            console.error('Error broadcasting transaction:', e)
-            broadcastResult = 'not available'
-          }
-        } else {
-          broadcastResult = 'not available'
-        }
-
-        onResult({
-          signedTransaction,
-          broadcastResult: broadcastResult,
-        })
-      }
+      const result = await runTronWebMethod(method as TronWebMethodId, {
+        tronWeb,
+        tronProvider,
+        useTronLink,
+        messageToSign,
+        transactionJson,
+        ...(method === 'signMessage' && { signMessageUseTronHeader }),
+      })
+      onResult(result)
     } catch (err) {
       onError(useTronLink ? `TronLink: ${(err as Error).message || 'Unknown error'}` : (err as Error).message || 'Unknown error')
     } finally {
@@ -234,6 +223,47 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
           ))}
         </select>
       </div>
+      {(method === 'signMessage' || method === 'signMessageV2') && (
+        <div className="space-y-2">
+          {method === 'signMessage' && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                useTronHeader (signMessage / verifyMessage)
+              </label>
+              <select
+                value={signMessageUseTronHeader ? 'true' : 'false'}
+                onChange={(e) => setSignMessageUseTronHeader(e.target.value === 'true')}
+                className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                data-testid="tron-signMessage-useTronHeader"
+              >
+                <option value="true">With header (true)</option>
+                <option value="false">Without header (false)</option>
+              </select>
+              <p className="text-xs text-gray-500 mt-1">
+                Third parameter of signMessage(hexMsg, undefined, useTronHeader). Must match in verifyMessage.
+              </p>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Message to sign <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={messageToSign}
+              onChange={(e) => setMessageToSign(e.target.value)}
+              placeholder={method === 'signMessageV2' ? 'Plain text (TIP-191)' : 'Enter message (converted to hex, prefixed with \\x19TRON Signed Message:\\n32)'}
+              data-testid="tron-tronWeb-signMessage-textarea"
+              className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[80px]"
+              rows={4}
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {method === 'signMessageV2'
+                ? 'V2 (TIP-191): tronWeb.trx.signMessageV2(message) → tronWeb.trx.verifyMessageV2(message, signature) returns recovered address.'
+                : 'Legacy: tronWeb.toHex(message) → tronWeb.trx.sign(hexMsg) → tronWeb.trx.verifyMessage(hexMsg, signature, address).'}
+            </p>
+          </div>
+        </div>
+      )}
       {method === 'signAndBroadcast' && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -320,16 +350,16 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
       <div className="space-y-3">
         <button
           onClick={() => handleExecute()}
-          disabled={loading || loadingTronLink || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim()))}
+          disabled={
+            loading ||
+            loadingTronLink ||
+            (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim())) ||
+            ((method === 'signMessage' || method === 'signMessageV2') && !messageToSign.trim())
+          }
+          data-testid="tron-tronWeb-execute-btn"
           className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
-          {loading
-            ? method === 'signAndBroadcast'
-              ? 'Signing & Broadcasting...'
-              : 'Getting Address...'
-            : method === 'signAndBroadcast'
-              ? 'Sign & Broadcast Transaction'
-              : 'Get Default Address'}
+          {getExecuteButtonLabel(method, loading)}
         </button>
         
         <div className="border-t border-gray-200 pt-3">
@@ -338,15 +368,17 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
           </div>
           <button
             onClick={handleExecuteWithTronLink}
-            disabled={loadingTronLink || loading || (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim()))}
+            disabled={
+              loadingTronLink ||
+              loading ||
+              (method === 'signAndBroadcast' && (!transactionJson.trim() || !fromAddress.trim())) ||
+              (method === 'signMessage' && !messageToSign.trim())
+            }
+            data-testid="tron-tronWeb-execute-tronlink-btn"
             className="w-full px-3 py-2 text-xs bg-purple-50 border border-purple-200 text-purple-700 rounded hover:bg-purple-100 disabled:bg-gray-50 disabled:text-gray-400 disabled:border-gray-200 disabled:cursor-not-allowed transition-colors"
             title="Sign and Broadcast with TronLink extension (for comparison)"
           >
-            {loadingTronLink || loading
-              ? (loadingTronLink ? 'Signing with TronLink...' : 'Broadcasting...')
-              : method === 'signAndBroadcast'
-                ? 'Sign & Broadcast with TronLink'
-                : 'Get Default Address with TronLink'}
+            {getTronLinkButtonLabel(method, loadingTronLink, loading)}
           </button>
         </div>
       </div>
