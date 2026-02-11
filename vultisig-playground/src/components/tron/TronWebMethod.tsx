@@ -79,7 +79,7 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
   const [loadingTronLink, setLoadingTronLink] = useState<boolean>(false)
   const [loadingAddress, setLoadingAddress] = useState<boolean>(false)
   const [loadingExample, setLoadingExample] = useState<boolean>(false)
-  /** Solo para signMessage: true = con header, false = sin header */
+  /** Only for signMessage: true = with header, false = without header */
   const [signMessageUseTronHeader, setSignMessageUseTronHeader] = useState<boolean>(false)
 
   const exampleDescriptions = getTronExampleDescriptions()
@@ -236,11 +236,11 @@ function TronWebMethodComponent({ onResult, onError }: TronWebMethodProps) {
                 className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 data-testid="tron-signMessage-useTronHeader"
               >
-                <option value="true">Con header (true)</option>
-                <option value="false">Sin header (false)</option>
+                <option value="true">With header (true)</option>
+                <option value="false">Without header (false)</option>
               </select>
               <p className="text-xs text-gray-500 mt-1">
-                Tercer parámetro de signMessage(hexMsg, undefined, useTronHeader). Debe coincidir en verifyMessage.
+                Third parameter of signMessage(hexMsg, undefined, useTronHeader). Must match in verifyMessage.
               </p>
             </div>
           )}

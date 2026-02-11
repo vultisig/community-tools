@@ -2,19 +2,19 @@ import type { TronWeb } from 'tronweb'
 import type { TronWebExecuteContext } from './types'
 
 /**
- * Prepara mensaje para TRON legacy signMessage (V1), según documentación oficial.
- * Flujo: text → hex (sin 0x) → byteArray → sha3 (keccak256) → hex sin 0x.
+ * Prepares message for TRON legacy signMessage (V1), per official documentation.
+ * Flow: text → hex (no 0x) → byteArray → sha3 (keccak256) → hex without 0x.
  */
 export function prepareTronV1FromUtf8Text(text: string, tronWeb: TronWeb): string {
   const trimmed = text.trim()
   const hexStrWithout0x = tronWeb.toHex(trimmed).replace(/^0x/, '')
   const byteArray = tronWeb.utils.code.hexStr2byteArray(hexStrWithout0x)
-  // Documentación oficial usa sha3(byteArray); tipos de TronWeb solo declaran string
+  // Official docs use sha3(byteArray); TronWeb types only declare string
   const strHash = (tronWeb.sha3 as (input: string | number[]) => string)(byteArray).replace(/^0x/, '')
   return strHash.toLowerCase()
 }
 
-/** Resultado de un flujo sign + verify con un valor de useTronHeader */
+/** Result of a sign + verify flow with a given useTronHeader value */
 export interface SignMessageVariantResult {
   signature: string
   verified: boolean
@@ -24,9 +24,9 @@ export interface SignMessageVariantResult {
 export interface SignMessageResult {
   hexMsg: string
   expectedAddress: string | null
-  /** Ejemplo con useTronHeader = true (por defecto en signMessage). Null si solo se ejecutó withoutTronHeader. */
+  /** Example with useTronHeader = true (default in signMessage). Null when only withoutTronHeader was run. */
   withTronHeader: SignMessageVariantResult | null
-  /** Ejemplo con useTronHeader = false (tercer param de signMessage). Null si solo se ejecutó withTronHeader. */
+  /** Example with useTronHeader = false (third param of signMessage). Null when only withTronHeader was run. */
   withoutTronHeader: SignMessageVariantResult | null
 }
 

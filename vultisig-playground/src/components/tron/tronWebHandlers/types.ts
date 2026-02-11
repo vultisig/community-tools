@@ -8,6 +8,6 @@ export interface TronWebExecuteContext {
   useTronLink: boolean
   messageToSign?: string
   transactionJson?: string
-  /** Solo para signMessage: true = con header, false = sin header */
+  /** Only for signMessage: true = with header, false = without header */
   signMessageUseTronHeader?: boolean
 }
