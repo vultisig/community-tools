@@ -1,4 +1,6 @@
 import type { ReactElement } from 'react'
+import { RequestMethod } from './RequestMethod'
+import { GenericMethod } from './GenericMethod'
 
 interface MethodComponentProps {
   provider: unknown
@@ -9,9 +11,23 @@ interface MethodComponentProps {
 
 type MethodComponent = (props: MethodComponentProps) => ReactElement
 
-export const polkadotMethodMapping: Record<string, MethodComponent> = {}
+export const polkadotMethodMapping: Record<string, MethodComponent> = {
+  request: RequestMethod,
+}
 
 export function getMethodComponent(methodName: string): MethodComponent | null {
-  return polkadotMethodMapping[methodName] || null
+  if (polkadotMethodMapping[methodName]) {
+    return polkadotMethodMapping[methodName]
+  }
+
+  return (props: MethodComponentProps) => (
+    <GenericMethod
+      provider={props.provider}
+      methodName={methodName}
+      onResult={props.onResult}
+      onError={props.onError}
+      onAccountUpdate={props.onAccountUpdate}
+    />
+  )
 }
 
