@@ -5,6 +5,15 @@ export function useProviderMethods(providerName: string) {
   const [methods, setMethods] = useState<string[]>([])
 
   useEffect(() => {
+    if (providerName === 'polkadot') {
+      if (window.injectedWeb3?.vultisig) {
+        setMethods(['injectedWeb3'])
+      } else {
+        setMethods([])
+      }
+      return
+    }
+
     if (!window.vultisig) {
       setMethods([])
       return
