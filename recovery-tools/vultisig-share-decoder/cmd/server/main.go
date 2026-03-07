@@ -1,0 +1,48 @@
+//go:build server
+// +build server
+
+package main
+
+import (
+	"log"
+	"net/http"
+	"strings"
+)
+
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+func main() {
+	fs := http.FileServer(http.Dir("web"))
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, ".wasm") {
+			w.Header().Set("Content-Type", "application/wasm")
+			w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+			log.Printf("Serving WASM file: %s", r.URL.Path)
+		}
+		fs.ServeHTTP(w, r)
+	})
+
+	http.Handle("/", enableCORS(handler))
+
+	log.Print("Listening on 0.0.0.0:5000...")
+	err := http.ListenAndServe("0.0.0.0:5000", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
