@@ -15,8 +15,8 @@ import (
 	dklsSession "github.com/vultisig/go-wrappers/go-dkls/sessions"
 	schnorrSession "github.com/vultisig/go-wrappers/go-schnorr/sessions"
 
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/derive"
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/vault"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/derive"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
 )
 
 type dklsKeyshares struct {

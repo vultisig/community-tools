@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/vault"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
 )
 
 func readTestFile(t *testing.T, path string) []byte {

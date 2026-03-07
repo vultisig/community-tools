@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/recovery"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/recovery"
 )
 
 func Text(r *recovery.RecoveryResult) string {

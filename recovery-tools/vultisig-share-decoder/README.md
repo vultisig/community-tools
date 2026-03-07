@@ -50,33 +50,55 @@ Included test files in `examples/`:
 
 Verify correctness by checking that the derived address matches what you had in Vultisig.
 
+## Using as a Go Library
+
+The public packages can be imported directly:
+
+```go
+import (
+    "github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
+    "github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/recovery"
+    "github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/derive"
+)
+```
+
+- **`pkg/vault`** — Vault file parsing, AES-GCM decryption, scheme detection
+- **`pkg/recovery`** — Key reconstruction for GG20 (VSS Shamir) and DKLS (algebraic export)
+- **`pkg/derive`** — HD key derivation and coin-specific address generation
+
 ## Project Structure
 ```
-├── cmd/                    # Entry points
-│   ├── server.go          # Web server entry point
-│   └── wasm.go            # WebAssembly entry point
-├── internal/              # Internal packages
-│   ├── crypto/            # TSS service and local state
-│   ├── processing/        # Key reconstruction and coin handlers
-│   └── utils/             # Types, file handling, encryption
-├── web/                   # Web assets (HTML, CSS, JS, WASM binaries)
-├── examples/              # Example vault files
-├── go.mod
-├── Makefile
-└── README.md
+cmd/
+  cli/            CLI entry point
+  server/         Web server entry point (for Vercel deployment)
+  wasm/           Go WASM entry point (GG20 recovery)
+pkg/
+  vault/          Vault parsing, decryption, scheme detection
+  recovery/       Key reconstruction (GG20 + DKLS)
+  derive/         Coin address derivation (BIP32/BIP44)
+internal/
+  format/         Text and JSON output formatters
+  tss/            LocalState struct for GG20 deserialization
+src/
+  derive.js       JS address derivation source (bundled for web)
+web/              Web assets (HTML, CSS, JS, WASM binaries)
+testdata/         Test vault files
 ```
-
-## Build Tags
-
-- `wasm`: WebAssembly build for browser
-- `server`: Web server build
 
 ## Build Commands
 
 ```bash
-# Build WebAssembly
-GOOS=js GOARCH=wasm go build -o web/main.wasm cmd/wasm.go
-
-# Build Web Server
-go build -o dist/webserver cmd/server.go
+make cli        # Build CLI binary -> dist/cli
+make webserver  # Build web server -> dist/webserver
+make wasm       # Build Go WASM -> web/main.wasm
+make derive     # Bundle JS address derivation -> web/derive.js
+make pages      # Build WASM + derive + gzip for deployment
+make test       # Run Go tests + JS derive tests
+make check      # go fmt + go vet
 ```
+
+## Build Tags
+
+- **`cli`**: Native CLI binary (CGo enabled for DKLS)
+- **`wasm`**: Go WASM for browser (GG20 only, no CGo)
+- **`server`**: Web server for local development / Vercel

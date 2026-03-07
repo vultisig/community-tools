@@ -5,7 +5,7 @@ package recovery
 import (
 	"fmt"
 
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/vault"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
 )
 
 func recoverDKLS(inputs []vault.FileInput, passwords []string) (*RecoveryResult, error) {

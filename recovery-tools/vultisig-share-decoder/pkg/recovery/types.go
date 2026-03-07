@@ -1,7 +1,7 @@
 package recovery
 
 import (
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/derive"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/derive"
 )
 
 type RootKeyInfo struct {

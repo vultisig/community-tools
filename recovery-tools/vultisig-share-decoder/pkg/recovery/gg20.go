@@ -11,8 +11,8 @@ import (
 	edwards "github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/derive"
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/vault"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/derive"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
 )
 
 func recoverGG20(inputs []vault.FileInput, passwords []string) (*RecoveryResult, error) {

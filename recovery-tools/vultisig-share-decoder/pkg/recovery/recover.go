@@ -3,7 +3,7 @@ package recovery
 import (
 	"fmt"
 
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/vault"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
 )
 
 func Recover(inputs []vault.FileInput, passwords []string, scheme string) (*RecoveryResult, error) {

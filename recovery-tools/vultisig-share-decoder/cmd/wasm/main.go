@@ -7,8 +7,8 @@ import (
 	"syscall/js"
 
 	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/format"
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/recovery"
-	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/internal/vault"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/recovery"
+	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/vault"
 )
 
 func recoverGG20(this js.Value, args []js.Value) interface{} {
