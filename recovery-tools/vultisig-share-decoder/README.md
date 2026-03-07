@@ -26,14 +26,39 @@ You can (and should) run this locally.
 
 [https://share-decoder.vultisig.com/](https://share-decoder.vultisig.com/)
 
-### Dependencies
-[Go](https://go.dev/doc/install)
+## Install
+
+### Pre-built binaries (recommended)
+
+Download from the [latest release](https://github.com/vultisig/community-tools/releases/latest):
+
+**macOS (Apple Silicon):**
+```bash
+curl -sSL https://github.com/vultisig/community-tools/releases/latest/download/vsd_darwin_arm64.tar.gz | tar xz
+```
+
+**Linux (x86_64):**
+```bash
+curl -sSL https://github.com/vultisig/community-tools/releases/latest/download/vsd_linux_amd64.tar.gz | tar xz
+```
+
+> **Note:** Keep the shared libraries (`.dylib`/`.so`) in the same directory as the `vsd` binary. `go install` is not supported due to `replace` directives required by `bnb-chain/tss-lib`.
+
+### Build from source
+
+Requires [Go 1.25+](https://go.dev/doc/install) and CGo.
+
+```bash
+git clone https://github.com/vultisig/community-tools.git
+cd community-tools/recovery-tools/vultisig-share-decoder
+make cli    # -> dist/cli
+```
 
 ### Running the Web Server
-1. `git clone https://github.com/vultisig/community-tools.git`
-2. `cd community-tools/recovery-tools/vultisig-share-decoder`
-3. `make all`
-4. `./dist/webserver`
+```bash
+make webserver
+./dist/webserver
+```
 
 ## Test Files Included
 
