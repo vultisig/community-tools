@@ -5,7 +5,7 @@
 *.so
 *.dylib
 dist/cli
-cli
+/cli
 
 # Test binary, built with `go test -c`
 *.test
