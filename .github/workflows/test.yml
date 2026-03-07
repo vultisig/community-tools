@@ -19,10 +19,11 @@ jobs:
       uses: actions/setup-go@v5
       with:
         go-version-file: './recovery-tools/vultisig-share-decoder/go.mod'
-    - name: Set up Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
+    - name: Set up Bun
+      uses: oven-sh/setup-bun@v2
+    - name: Install JS dependencies
+      working-directory: ./recovery-tools/vultisig-share-decoder
+      run: bun install
     - name: Run code checks and tests
       working-directory: ./recovery-tools/vultisig-share-decoder
-      run: make check && make test-all
+      run: make check && make test
