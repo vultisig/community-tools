@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import type {
   PolkadotInjectedAccount,
   PolkadotSignerPayloadJSON,
@@ -30,7 +30,7 @@ const defaultSignPayload: PolkadotSignerPayloadJSON = {
 
 const defaultSignRaw: PolkadotSignerPayloadRaw = {
   address: '',
-  data: '0x48656c6c6f20566f6c746973696721',
+  data: '0x48656c6c6f2056756c746973696721',
   type: 'bytes',
 }
 
@@ -41,6 +41,13 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
   const [results, setResults] = useState<Record<string, unknown>>({})
   const [signPayloadInput, setSignPayloadInput] = useState(JSON.stringify(defaultSignPayload, null, 2))
   const [signRawInput, setSignRawInput] = useState(JSON.stringify(defaultSignRaw, null, 2))
+  const unsubRef = useRef<(() => void) | null>(null)
+
+  useEffect(() => {
+    return () => {
+      unsubRef.current?.()
+    }
+  }, [])
 
   const setMethodLoading = (method: string, value: boolean) => {
     setLoading(prev => ({ ...prev, [method]: value }))
@@ -88,11 +95,13 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
     if (!enabledProvider) return
     setMethodLoading('accounts.subscribe', true)
     try {
+      unsubRef.current?.()
       const unsub = enabledProvider.accounts.subscribe((accs: PolkadotInjectedAccount[]) => {
         setAccounts(accs)
         setMethodResult('accounts.subscribe', accs)
         onResult({ subscriptionUpdate: accs })
       })
+      unsubRef.current = typeof unsub === 'function' ? unsub : null
       setMethodResult('accounts.subscribe', { subscribed: true, message: 'Listening for account changes...' })
       onResult({ subscribed: true, unsubscribe: typeof unsub === 'function' })
     } catch (err) {
@@ -103,7 +112,10 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
   }, [enabledProvider, onResult, onError])
 
   const handleSignPayload = useCallback(async () => {
-    if (!enabledProvider) return
+    if (!enabledProvider?.signer) {
+      onError('Signer not available. Re-enable the provider.')
+      return
+    }
     setMethodLoading('signer.signPayload', true)
     try {
       let payload: PolkadotSignerPayloadJSON
@@ -128,7 +140,10 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
   }, [enabledProvider, signPayloadInput, accounts, onResult, onError])
 
   const handleSignRaw = useCallback(async () => {
-    if (!enabledProvider) return
+    if (!enabledProvider?.signer) {
+      onError('Signer not available. Re-enable the provider.')
+      return
+    }
     setMethodLoading('signer.signRaw', true)
     try {
       let payload: PolkadotSignerPayloadRaw
@@ -218,8 +233,8 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
           {accounts.length > 0 && (
             <div className="mt-3 p-2 bg-blue-50 rounded">
               <p className="text-xs font-semibold text-blue-800 mb-1">Connected Accounts:</p>
-              {accounts.map((acc, i) => (
-                <div key={i} className="text-xs font-mono text-blue-700 break-all">
+              {accounts.map((acc) => (
+                <div key={acc.address} className="text-xs font-mono text-blue-700 break-all">
                   {acc.name && <span className="font-semibold">{acc.name}: </span>}
                   {acc.address}
                   {acc.type && <span className="text-blue-500 ml-1">({acc.type})</span>}
