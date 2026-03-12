@@ -21,7 +21,11 @@ function ProviderPlayground() {
   const providerMethods = useProviderMethods(provider || '')
   
   const getProviderInstance = (): unknown | null => {
-    if (!provider || !window.vultisig) return null
+    if (!provider) return null
+    if (provider === 'polkadot') {
+      return window.injectedWeb3?.vultisig || null
+    }
+    if (!window.vultisig) return null
     return (window.vultisig as Record<string, unknown>)[provider] || null
   }
 
@@ -29,6 +33,12 @@ function ProviderPlayground() {
     const providerInstance = getProviderInstance()
     if (providerInstance) {
       setError(null)
+    } else if (provider === 'polkadot') {
+      if (window.injectedWeb3) {
+        setError('window.injectedWeb3 detected, but vultisig provider is not available.')
+      } else {
+        setError('window.injectedWeb3 not detected. Please install the Vultisig extension.')
+      }
     } else if (window.vultisig) {
       setError(`Vultisig extension detected, but ${provider} provider is not available.`)
     } else {

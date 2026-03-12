@@ -12,7 +12,7 @@ export const providerDisplayNames: Record<string, string> = {
   mayachain: 'Native',
   ripple: 'Native',
   solana: 'Native',
-  polkadot: 'Native',
+  polkadot: 'injectedWeb3',
   dash: 'Native',
 }
 
