@@ -26,6 +26,10 @@ function ProviderPlayground() {
       return window.injectedWeb3?.vultisig || null
     }
     if (!window.vultisig) return null
+    if (provider === 'ton') {
+      const tonProvider = window.vultisig.ton as { tonconnect?: unknown } | undefined
+      return tonProvider?.tonconnect || null
+    }
     return (window.vultisig as Record<string, unknown>)[provider] || null
   }
 
