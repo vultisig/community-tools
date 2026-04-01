@@ -25,6 +25,7 @@ const chains: Chain[] = [
   { id: 'SOL', name: 'Solana', icon: '/chains/solana.svg', path: '/sol', key: 'sol' },
   { id: 'DOT', name: 'Polkadot', icon: '/chains/dot.svg', path: '/dot', key: 'dot' },
   { id: 'DASH', name: 'Dash', icon: '/chains/dash.svg', path: '/dash', key: 'dash' },
+  { id: 'TON', name: 'TON', icon: '/chains/ton.svg', path: '/ton', key: 'ton' },
 ]
 
 function ChainMenu() {

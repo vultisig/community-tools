@@ -12,6 +12,7 @@ import { getMethodComponent as getRippleMethodComponent } from './ripple/methodM
 import { getMethodComponent as getSolanaMethodComponent } from './solana/methodMapping'
 import { getMethodComponent as getPolkadotMethodComponent } from './polkadot/methodMapping'
 import { getMethodComponent as getDashMethodComponent } from './dash/methodMapping'
+import { getMethodComponent as getTonMethodComponent } from './ton/methodMapping'
 import type { ReactElement } from 'react'
 
 interface MethodComponentProps {
@@ -62,6 +63,8 @@ export function getMethodComponent(chainName: string, providerName: string, meth
       return getPolkadotMethodComponent(methodName)
     case 'dash':
       return getDashMethodComponent(methodName)
+    case 'ton':
+      return getTonMethodComponent(methodName)
     default:
       return null
   }

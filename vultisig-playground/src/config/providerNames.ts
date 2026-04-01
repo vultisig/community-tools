@@ -14,6 +14,7 @@ export const providerDisplayNames: Record<string, string> = {
   solana: 'Native',
   polkadot: 'injectedWeb3',
   dash: 'Native',
+  ton: 'TonConnect',
 }
 
 export function getProviderDisplayName(providerName: string): string {

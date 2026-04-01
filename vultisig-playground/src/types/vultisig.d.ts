@@ -33,6 +33,7 @@ interface VultisigWindow {
     ripple?: VultisigProvider
     solana?: VultisigProvider
     dash?: VultisigProvider
+    ton?: { tonconnect: unknown }
     [key: string]: unknown
   }
 }

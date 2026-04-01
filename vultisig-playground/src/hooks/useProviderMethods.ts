@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { tronMethodMapping } from '../components/tron/methodMapping'
+import { tonMethodMapping } from '../components/ton/methodMapping'
 
 export function useProviderMethods(providerName: string) {
   const [methods, setMethods] = useState<string[]>([])
@@ -8,6 +9,16 @@ export function useProviderMethods(providerName: string) {
     if (providerName === 'polkadot') {
       if (window.injectedWeb3?.vultisig) {
         setMethods(['injectedWeb3'])
+      } else {
+        setMethods([])
+      }
+      return
+    }
+
+    if (providerName === 'ton') {
+      const tonProvider = window.vultisig?.ton as { tonconnect?: unknown } | undefined
+      if (tonProvider?.tonconnect) {
+        setMethods(Object.keys(tonMethodMapping))
       } else {
         setMethods([])
       }

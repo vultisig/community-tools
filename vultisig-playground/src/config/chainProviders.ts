@@ -13,6 +13,7 @@ export const chainProviders: Record<string, string[]> = {
   sol: ['solana'],
   dot: ['polkadot'],
   dash: ['dash'],
+  ton: ['ton'],
 }
 
 export function getChainProviders(chainName: string): string[] {
