@@ -23,7 +23,7 @@ function ProviderPlayground() {
   const getProviderInstance = (): unknown | null => {
     if (!provider) return null
     if (provider === 'polkadot') {
-      return window.injectedWeb3?.vultisig || null
+      return window.injectedWeb3?.['polkadot-js'] || null
     }
     if (!window.vultisig) return null
     if (provider === 'ton') {
@@ -39,7 +39,7 @@ function ProviderPlayground() {
       setError(null)
     } else if (provider === 'polkadot') {
       if (window.injectedWeb3) {
-        setError('window.injectedWeb3 detected, but vultisig provider is not available.')
+        setError("window.injectedWeb3 detected, but the 'polkadot-js' provider is not available.")
       } else {
         setError('window.injectedWeb3 not detected. Please install the Vultisig extension.')
       }

@@ -61,11 +61,11 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
     setMethodLoading('enable', true)
     try {
       const injectedWeb3 = window.injectedWeb3
-      if (!injectedWeb3?.vultisig) {
-        onError('window.injectedWeb3.vultisig not found. Is the Vultisig extension installed?')
+      if (!injectedWeb3?.['polkadot-js']) {
+        onError("window.injectedWeb3['polkadot-js'] not found. Is the Vultisig extension installed?")
         return
       }
-      const provider = await injectedWeb3.vultisig.enable('vultisig-playground')
+      const provider = await injectedWeb3['polkadot-js'].enable('vultisig-playground')
       setEnabledProvider(provider)
       setMethodResult('enable', { success: true, hasAccounts: !!provider.accounts, hasSigner: !!provider.signer })
       onResult({ enabled: true, accounts: !!provider.accounts, signer: !!provider.signer })
@@ -183,7 +183,7 @@ function InjectedWeb3Playground({ onResult, onError }: InjectedWeb3PlaygroundPro
       <div className="border border-gray-200 rounded-lg p-4">
         <h4 className="text-sm font-semibold text-gray-900 mb-2">1. enable(origin)</h4>
         <p className="text-xs text-gray-500 mb-3">
-          Calls <code>window.injectedWeb3.vultisig.enable('vultisig-playground')</code> to get accounts and signer.
+          Calls <code>window.injectedWeb3['polkadot-js'].enable('vultisig-playground')</code> to get accounts and signer.
         </p>
         <button
           onClick={handleEnable}

@@ -7,7 +7,7 @@ export function useProviderMethods(providerName: string) {
 
   useEffect(() => {
     if (providerName === 'polkadot') {
-      if (window.injectedWeb3?.vultisig) {
+      if (window.injectedWeb3?.['polkadot-js']) {
         setMethods(['injectedWeb3'])
       } else {
         setMethods([])
