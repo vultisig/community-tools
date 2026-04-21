@@ -1,6 +1,7 @@
 import { ConnectMethod } from './ConnectMethod'
 import { DisconnectMethod } from './DisconnectMethod'
 import { RestoreConnectionMethod } from './RestoreConnectionMethod'
+import { SendTransactionMethod } from './SendTransactionMethod'
 import { SignDataMethod } from './SignDataMethod'
 import type { ReactElement } from 'react'
 
@@ -17,6 +18,7 @@ export const tonMethodMapping: Record<string, MethodComponent> = {
   connect: ConnectMethod,
   restoreConnection: RestoreConnectionMethod,
   disconnect: DisconnectMethod,
+  sendTransaction: SendTransactionMethod,
   signData: SignDataMethod,
 }
 
