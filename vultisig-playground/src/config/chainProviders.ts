@@ -14,6 +14,7 @@ export const chainProviders: Record<string, string[]> = {
   dot: ['polkadot'],
   dash: ['dash'],
   ton: ['ton'],
+  ada: ['cardano'],
 }
 
 export function getChainProviders(chainName: string): string[] {

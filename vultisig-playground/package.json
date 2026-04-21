@@ -21,6 +21,7 @@
     "@wallet-standard/base": "^1.1.0",
     "bchaddrjs": "^0.5.2",
     "buffer": "^6.0.3",
+    "cbor-x": "^1.6.0",
     "protobufjs": "^7.5.4",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -36,6 +36,39 @@ interface VultisigWindow {
     ton?: { tonconnect: unknown }
     [key: string]: unknown
   }
+  cardano?: Record<string, CardanoCip30InitialApi | undefined>
+}
+
+export interface CardanoCip30Extension {
+  cip: number
+}
+
+export interface CardanoPaginate {
+  page: number
+  limit: number
+}
+
+export interface CardanoCip30FullApi {
+  getExtensions: () => Promise<CardanoCip30Extension[]>
+  getNetworkId: () => Promise<number>
+  getUsedAddresses: (paginate?: CardanoPaginate) => Promise<string[]>
+  getUnusedAddresses: () => Promise<string[]>
+  getChangeAddress: () => Promise<string>
+  getRewardAddresses: () => Promise<string[]>
+  getBalance: () => Promise<string>
+  getUtxos: (amount?: string, paginate?: CardanoPaginate) => Promise<string[] | null>
+  signTx: (tx: string, partialSign?: boolean) => Promise<string>
+  signData: (addr: string, payload: string) => Promise<{ signature: string; key: string }>
+  submitTx: (tx: string) => Promise<string>
+}
+
+export interface CardanoCip30InitialApi {
+  name: string
+  icon: string
+  apiVersion: string
+  supportedExtensions: CardanoCip30Extension[]
+  isEnabled: () => Promise<boolean>
+  enable: () => Promise<CardanoCip30FullApi>
 }
 
 export interface PolkadotInjectedAccount {
