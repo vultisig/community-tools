@@ -13,6 +13,7 @@ import { getMethodComponent as getSolanaMethodComponent } from './solana/methodM
 import { getMethodComponent as getPolkadotMethodComponent } from './polkadot/methodMapping'
 import { getMethodComponent as getDashMethodComponent } from './dash/methodMapping'
 import { getMethodComponent as getTonMethodComponent } from './ton/methodMapping'
+import { getMethodComponent as getCardanoMethodComponent } from './cardano/methodMapping'
 import type { ReactElement } from 'react'
 
 interface MethodComponentProps {
@@ -65,6 +66,9 @@ export function getMethodComponent(chainName: string, providerName: string, meth
       return getDashMethodComponent(methodName)
     case 'ton':
       return getTonMethodComponent(methodName)
+    case 'cardano':
+    case 'ada':
+      return getCardanoMethodComponent(methodName)
     default:
       return null
   }

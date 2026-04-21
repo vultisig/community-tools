@@ -15,6 +15,7 @@ export const providerDisplayNames: Record<string, string> = {
   polkadot: 'injectedWeb3',
   dash: 'Native',
   ton: 'TonConnect',
+  cardano: 'CIP-30',
 }
 
 export function getProviderDisplayName(providerName: string): string {

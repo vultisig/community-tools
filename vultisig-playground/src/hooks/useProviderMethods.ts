@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { tronMethodMapping } from '../components/tron/methodMapping'
 import { tonMethodMapping } from '../components/ton/methodMapping'
+import { cardanoMethodMapping } from '../components/cardano/methodMapping'
 
 export function useProviderMethods(providerName: string) {
   const [methods, setMethods] = useState<string[]>([])
@@ -19,6 +20,15 @@ export function useProviderMethods(providerName: string) {
       const tonProvider = window.vultisig?.ton as { tonconnect?: unknown } | undefined
       if (tonProvider?.tonconnect) {
         setMethods(Object.keys(tonMethodMapping))
+      } else {
+        setMethods([])
+      }
+      return
+    }
+
+    if (providerName === 'cardano') {
+      if (window.cardano?.vultisig) {
+        setMethods(Object.keys(cardanoMethodMapping))
       } else {
         setMethods([])
       }

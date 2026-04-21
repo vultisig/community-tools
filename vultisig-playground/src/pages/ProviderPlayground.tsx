@@ -25,6 +25,9 @@ function ProviderPlayground() {
     if (provider === 'polkadot') {
       return window.injectedWeb3?.['polkadot-js'] || null
     }
+    if (provider === 'cardano') {
+      return window.cardano?.vultisig || null
+    }
     if (!window.vultisig) return null
     if (provider === 'ton') {
       const tonProvider = window.vultisig.ton as { tonconnect?: unknown } | undefined
@@ -42,6 +45,12 @@ function ProviderPlayground() {
         setError("window.injectedWeb3 detected, but the 'polkadot-js' provider is not available.")
       } else {
         setError('window.injectedWeb3 not detected. Please install the Vultisig extension.')
+      }
+    } else if (provider === 'cardano') {
+      if (window.cardano) {
+        setError("window.cardano detected, but the 'vultisig' CIP-30 provider is not available.")
+      } else {
+        setError('window.cardano not detected. Please install the Vultisig extension.')
       }
     } else if (window.vultisig) {
       setError(`Vultisig extension detected, but ${provider} provider is not available.`)
