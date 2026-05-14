@@ -21,7 +21,7 @@ import { PublicKey, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { getTransactionEncoder } from '@solana/transactions'
 import { Buffer } from 'buffer'
 
-const SOLANA_RPC_URL = 'https://solana-mainnet.g.alchemy.com/v2/PiMBPAB_R6x92QTdZwt8H6tBvFIGV5SW'
+const SOLANA_RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL || 'https://api.vultisig.com/solana/'
 
 type Blockhash = Awaited<ReturnType<ReturnType<ReturnType<typeof createSolanaRpc>['getLatestBlockhash']>['send']>>['value']
 
