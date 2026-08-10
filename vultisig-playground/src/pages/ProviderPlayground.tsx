@@ -33,6 +33,9 @@ function ProviderPlayground() {
       const tonProvider = window.vultisig.ton as { tonconnect?: unknown } | undefined
       return tonProvider?.tonconnect || null
     }
+    if (provider === 'ripple') {
+      return window.vultisig.xrpl ?? null
+    }
     return (window.vultisig as Record<string, unknown>)[provider] || null
   }
 

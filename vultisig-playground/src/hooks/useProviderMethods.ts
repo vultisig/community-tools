@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { tronMethodMapping } from '../components/tron/methodMapping'
 import { tonMethodMapping } from '../components/ton/methodMapping'
 import { cardanoMethodMapping } from '../components/cardano/methodMapping'
+import { rippleMethodMapping } from '../components/ripple/methodMapping'
 
 export function useProviderMethods(providerName: string) {
   const [methods, setMethods] = useState<string[]>([])
@@ -29,6 +30,15 @@ export function useProviderMethods(providerName: string) {
     if (providerName === 'cardano') {
       if (window.cardano?.vultisig) {
         setMethods(Object.keys(cardanoMethodMapping))
+      } else {
+        setMethods([])
+      }
+      return
+    }
+
+    if (providerName === 'ripple') {
+      if (window.vultisig?.xrpl) {
+        setMethods(Object.keys(rippleMethodMapping))
       } else {
         setMethods([])
       }
