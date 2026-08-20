@@ -6,17 +6,14 @@ import {
   xrpToDrops,
 } from './rippleTransactions'
 
-// Adversarial cases reproduce the keysign-integrity XRPL gaps documented in
-// keysign-integrity chain-fields.md (issues windows#4595 / ios#5081 / android#5555):
-// fields that change what actually settles but may not surface in the wallet UI.
-// Every builder targets the connected account (self) — never a hardcoded third party —
-// so a "Sign & submit" misclick can't drain funds to an address the dev doesn't control.
+// Presets exercise fields that must be visible before signature. They remain
+// sign-only to prevent example payloads from changing live ledger state.
 
 // tfPartialPayment: Amount becomes a ceiling, not a guaranteed delivery.
 const TF_PARTIAL_PAYMENT = 131072
 
-// Bitstamp USD appears only as a currency ISSUER (never a fund destination).
 const BITSTAMP_USD_ISSUER = 'rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B'
+const USD_TO_XRP_PATHS = [[{ currency: 'XRP' }]]
 
 export type RippleExampleCategory = 'legit' | 'adversarial'
 
@@ -40,9 +37,15 @@ export const rippleExamples: RippleExample[] = [
   {
     id: 'selfSwap',
     label: 'Self cross-currency payment',
-    description: 'Cross-currency-style Payment delivering 1 XRP to yourself with a 1.5 XRP SendMax cap.',
+    description: 'Convert up to 1.5 USD (Bitstamp) into 1 XRP for your own account.',
     category: 'legit',
-    build: (account) => buildSelfSwapPayment({ account, deliverXrp: '1', sendMaxXrp: '1.5' }),
+    build: (account) =>
+      buildSelfSwapPayment({
+        account,
+        deliverXrp: '1',
+        sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '1.5' },
+        paths: USD_TO_XRP_PATHS,
+      }),
   },
   {
     id: 'offerCreate',
@@ -73,9 +76,13 @@ export const rippleExamples: RippleExample[] = [
     expectedWalletBehavior:
       'Wallet must warn (partial payment, no minimum delivery) or reject; Amount is a ceiling, not guaranteed.',
     build: (account) => ({
-      ...buildPayment({ account, destination: account, xrp: '1' }),
+      ...buildSelfSwapPayment({
+        account,
+        deliverXrp: '1',
+        sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '1000' },
+        paths: USD_TO_XRP_PATHS,
+      }),
       Flags: TF_PARTIAL_PAYMENT,
-      SendMax: xrpToDrops('1000'),
     }),
   },
   {
@@ -84,13 +91,13 @@ export const rippleExamples: RippleExample[] = [
     description: 'Payment carrying a custom Paths array that reroutes how value is sourced. Destination is you.',
     category: 'adversarial',
     expectedWalletBehavior: 'Wallet must show that custom Paths are present.',
-    build: (account) => ({
-      ...buildPayment({ account, destination: account, xrp: '1' }),
-      SendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '5' },
-      Paths: [
-        [{ currency: 'USD', issuer: BITSTAMP_USD_ISSUER }, { currency: 'XRP' }],
-      ],
-    }),
+    build: (account) =>
+      buildSelfSwapPayment({
+        account,
+        deliverXrp: '1',
+        sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '5' },
+        paths: USD_TO_XRP_PATHS,
+      }),
   },
 ]
 

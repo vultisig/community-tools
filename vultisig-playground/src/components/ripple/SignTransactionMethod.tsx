@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { RippleProvider } from './types'
 import { getRippleExample, rippleExamples } from './rippleExamples'
+import { executeRippleTransaction, type RippleSignMode } from './rippleSigningPolicy'
 
 interface SignTransactionMethodProps {
   provider: unknown
@@ -9,18 +10,18 @@ interface SignTransactionMethodProps {
   onAccountUpdate?: (accounts: string[]) => void
 }
 
-type SignMode = 'sign' | 'submit'
-
 const legitExamples = rippleExamples.filter((e) => e.category === 'legit')
 const adversarialExamples = rippleExamples.filter((e) => e.category === 'adversarial')
 
 export function SignTransactionMethod({ provider, onResult, onError }: SignTransactionMethodProps) {
   const [transactionJson, setTransactionJson] = useState<string>('')
   const [selectedExampleId, setSelectedExampleId] = useState<string>('')
-  const [mode, setMode] = useState<SignMode>('sign')
+  const [mode, setMode] = useState<RippleSignMode>('sign')
   const [loading, setLoading] = useState<boolean>(false)
+  const exampleRequestId = useRef(0)
 
   const selectedExample = getRippleExample(selectedExampleId)
+  const isPresetSelected = selectedExample !== undefined
 
   const getProvider = (): RippleProvider | null => {
     const xrpl = provider as Partial<RippleProvider> | null
@@ -29,7 +30,10 @@ export function SignTransactionMethod({ provider, onResult, onError }: SignTrans
   }
 
   const handleSelectExample = async (id: string): Promise<void> => {
+    const requestId = ++exampleRequestId.current
     setSelectedExampleId(id)
+    setTransactionJson('')
+    setMode('sign')
     if (!id) return
 
     const example = getRippleExample(id)
@@ -43,11 +47,19 @@ export function SignTransactionMethod({ provider, onResult, onError }: SignTrans
 
     try {
       const { address } = await xrpl.getAddress()
+      if (requestId !== exampleRequestId.current) return
       const tx = example.build(address)
       setTransactionJson(JSON.stringify(tx, null, 2))
     } catch (err) {
+      if (requestId !== exampleRequestId.current) return
       onError((err as Error).message || 'Failed to build example')
     }
+  }
+
+  const handleTransactionChange = (value: string): void => {
+    exampleRequestId.current += 1
+    setSelectedExampleId('')
+    setTransactionJson(value)
   }
 
   const handleSign = async (): Promise<void> => {
@@ -72,10 +84,12 @@ export function SignTransactionMethod({ provider, onResult, onError }: SignTrans
 
     setLoading(true)
     try {
-      const result =
-        mode === 'submit'
-          ? await xrpl.submitTransaction({ transaction })
-          : await xrpl.signTransaction({ transaction })
+      const result = await executeRippleTransaction({
+        mode,
+        isPresetSelected,
+        transaction,
+        provider: xrpl,
+      })
       onResult(result)
     } catch (err) {
       onError((err as Error).message || 'Unknown error')
@@ -145,7 +159,7 @@ export function SignTransactionMethod({ provider, onResult, onError }: SignTrans
           id="ripple-tx-json"
           aria-required="true"
           value={transactionJson}
-          onChange={(e) => setTransactionJson(e.target.value)}
+          onChange={(e) => handleTransactionChange(e.target.value)}
           placeholder="Select an example or paste raw XRPL JSON"
           className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-y min-h-[160px]"
           rows={10}
@@ -172,12 +186,19 @@ export function SignTransactionMethod({ provider, onResult, onError }: SignTrans
             type="radio"
             name="ripple-sign-mode"
             checked={submitMode}
+            disabled={isPresetSelected}
             onChange={() => setMode('submit')}
-            className="focus:ring-2 focus:ring-blue-500"
+            className="focus:ring-2 focus:ring-blue-500 disabled:cursor-not-allowed"
           />
           Sign &amp; submit (broadcasts)
         </label>
       </fieldset>
+
+      {isPresetSelected && (
+        <p className="text-xs text-amber-700">
+          Bundled examples are sign-only. Edit the raw JSON to enable XRPL Mainnet broadcast.
+        </p>
+      )}
 
       <button
         onClick={handleSign}

@@ -15,6 +15,14 @@ export interface IssuedAmount {
 
 export type XrplAmount = string | IssuedAmount
 
+export interface XrplPathStep {
+  account?: string
+  currency?: string
+  issuer?: string
+}
+
+export type XrplPathSet = XrplPathStep[][]
+
 export interface XrplPayment {
   TransactionType: 'Payment'
   Account: string
@@ -24,7 +32,7 @@ export interface XrplPayment {
   SendMax?: XrplAmount
   DeliverMin?: XrplAmount
   Flags?: number
-  Paths?: unknown[]
+  Paths?: XrplPathSet
 }
 
 export interface XrplOfferCreate {
@@ -48,14 +56,16 @@ export interface XrplTrustSet {
 
 export type XrplTransaction = XrplPayment | XrplOfferCreate | XrplOfferCancel | XrplTrustSet
 
-// String-based to avoid float precision loss on drops. Truncates beyond 6dp after validation.
 export function xrpToDrops(xrp: string): string {
   const trimmed = xrp.trim()
   if (!XRP_AMOUNT_PATTERN.test(trimmed)) {
     throw new Error(`Invalid XRP amount: ${xrp}`)
   }
   const [whole, frac = ''] = trimmed.split('.')
-  const fracPadded = (frac + '0'.repeat(XRP_DECIMALS)).slice(0, XRP_DECIMALS)
+  if (frac.length > XRP_DECIMALS) {
+    throw new Error(`XRP amount supports up to ${XRP_DECIMALS} decimal places`)
+  }
+  const fracPadded = frac.padEnd(XRP_DECIMALS, '0')
   const drops = BigInt(whole || '0') * DROPS_PER_XRP + BigInt(fracPadded || '0')
   return drops.toString()
 }
@@ -81,17 +91,22 @@ export function buildPayment({ account, destination, xrp, destinationTag }: Paym
 export interface SelfSwapParams {
   account: string
   deliverXrp: string
-  sendMaxXrp: string
+  sendMax: XrplAmount
+  paths: XrplPathSet
 }
 
-// Cross-currency-style Payment where Destination === Account.
-export function buildSelfSwapPayment({ account, deliverXrp, sendMaxXrp }: SelfSwapParams): XrplPayment {
+export function buildSelfSwapPayment({ account, deliverXrp, sendMax, paths }: SelfSwapParams): XrplPayment {
+  if (paths.length === 0 || paths.every((path) => path.length === 0)) {
+    throw new Error('XRPL currency conversion requires a non-empty payment path')
+  }
+
   return {
     TransactionType: 'Payment',
     Account: account,
     Destination: account,
     Amount: xrpToDrops(deliverXrp),
-    SendMax: xrpToDrops(sendMaxXrp),
+    SendMax: sendMax,
+    Paths: paths,
   }
 }
 
