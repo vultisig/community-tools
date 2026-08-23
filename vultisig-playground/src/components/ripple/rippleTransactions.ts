@@ -92,22 +92,25 @@ export interface SelfSwapParams {
   account: string
   deliverXrp: string
   sendMax: XrplAmount
-  paths: XrplPathSet
+  paths?: XrplPathSet
 }
 
 export function buildSelfSwapPayment({ account, deliverXrp, sendMax, paths }: SelfSwapParams): XrplPayment {
-  if (paths.length === 0 || paths.every((path) => path.length === 0)) {
-    throw new Error('XRPL currency conversion requires a non-empty payment path')
+  // Paths is optional on cross-currency payments (the engine always considers the
+  // default path); only an explicitly-provided empty set is invalid (temRIPPLE_EMPTY).
+  if (paths !== undefined && (paths.length === 0 || paths.every((path) => path.length === 0))) {
+    throw new Error('An explicit Paths set must contain at least one non-empty path; omit paths to use default path finding')
   }
 
-  return {
+  const tx: XrplPayment = {
     TransactionType: 'Payment',
     Account: account,
     Destination: account,
     Amount: xrpToDrops(deliverXrp),
     SendMax: sendMax,
-    Paths: paths,
   }
+  if (paths !== undefined) tx.Paths = paths
+  return tx
 }
 
 export interface OfferCreateParams {

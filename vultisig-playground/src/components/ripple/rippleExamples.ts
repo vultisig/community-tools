@@ -13,7 +13,13 @@ import {
 const TF_PARTIAL_PAYMENT = 131072
 
 const BITSTAMP_USD_ISSUER = 'rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B'
+const GATEHUB_USD_ISSUER = 'rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq'
 const USD_TO_XRP_PATHS = [[{ currency: 'XRP' }]]
+// Hops through GateHub USD before converting to XRP, while SendMax names Bitstamp —
+// the path sources value differently than the visible fields imply.
+const REROUTED_USD_TO_XRP_PATHS = [
+  [{ currency: 'USD', issuer: GATEHUB_USD_ISSUER }, { currency: 'XRP' }],
+]
 
 export type RippleExampleCategory = 'legit' | 'adversarial'
 
@@ -30,7 +36,8 @@ export const rippleExamples: RippleExample[] = [
   {
     id: 'nativePayment',
     label: 'Native XRP payment',
-    description: 'Send 1 XRP to yourself; edit Destination to a real address to actually send elsewhere.',
+    description:
+      'Send 1 XRP to yourself. Sign-only by design: as bundled this is network-invalid (rippled rejects a plain self-payment as temREDUNDANT). Edit Destination to a real address to build a broadcastable payment.',
     category: 'legit',
     build: (account) => buildPayment({ account, destination: account, xrp: '1' }),
   },
@@ -45,6 +52,19 @@ export const rippleExamples: RippleExample[] = [
         deliverXrp: '1',
         sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '1.5' },
         paths: USD_TO_XRP_PATHS,
+      }),
+  },
+  {
+    id: 'selfSwapPathless',
+    label: 'Self cross-currency payment (default paths)',
+    description:
+      'Convert up to 1.5 USD (Bitstamp) into 1 XRP with no explicit Paths field — the payment engine uses default path finding.',
+    category: 'legit',
+    build: (account) =>
+      buildSelfSwapPayment({
+        account,
+        deliverXrp: '1',
+        sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '1.5' },
       }),
   },
   {
@@ -88,15 +108,17 @@ export const rippleExamples: RippleExample[] = [
   {
     id: 'adv-hidden-paths',
     label: '⚠ Adversarial — hidden Paths',
-    description: 'Payment carrying a custom Paths array that reroutes how value is sourced. Destination is you.',
+    description:
+      'Payment whose Paths reroute the conversion through a GateHub USD hop while SendMax names Bitstamp USD — value is sourced differently than the visible fields imply. Destination is you.',
     category: 'adversarial',
-    expectedWalletBehavior: 'Wallet must show that custom Paths are present.',
+    expectedWalletBehavior:
+      'Wallet must surface the custom Paths (the issuer hop differs from the SendMax issuer); hiding them hides the reroute.',
     build: (account) =>
       buildSelfSwapPayment({
         account,
         deliverXrp: '1',
         sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '5' },
-        paths: USD_TO_XRP_PATHS,
+        paths: REROUTED_USD_TO_XRP_PATHS,
       }),
   },
 ]

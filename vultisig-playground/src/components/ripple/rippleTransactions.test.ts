@@ -31,10 +31,26 @@ describe('buildSelfSwapPayment', () => {
     })
   })
 
-  it('rejects an empty currency-conversion path set', () => {
+  it('omits Paths entirely when none are provided', () => {
+    const sendMax = { currency: 'USD', issuer, value: '1.5' }
+
+    assert.deepEqual(buildSelfSwapPayment({ account, deliverXrp: '1', sendMax }), {
+      TransactionType: 'Payment',
+      Account: account,
+      Destination: account,
+      Amount: '1000000',
+      SendMax: sendMax,
+    })
+  })
+
+  it('rejects an explicitly-passed empty path set', () => {
     assert.throws(
       () => buildSelfSwapPayment({ account, deliverXrp: '1', sendMax: '1500000', paths: [] }),
-      /requires a non-empty payment path/,
+      /must contain at least one non-empty path/,
+    )
+    assert.throws(
+      () => buildSelfSwapPayment({ account, deliverXrp: '1', sendMax: '1500000', paths: [[]] }),
+      /must contain at least one non-empty path/,
     )
   })
 })
