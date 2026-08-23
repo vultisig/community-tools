@@ -1,3 +1,5 @@
+import { GetAddressMethod } from './GetAddressMethod'
+import { SignTransactionMethod } from './SignTransactionMethod'
 import type { ReactElement } from 'react'
 
 interface MethodComponentProps {
@@ -9,9 +11,11 @@ interface MethodComponentProps {
 
 type MethodComponent = (props: MethodComponentProps) => ReactElement
 
-export const rippleMethodMapping: Record<string, MethodComponent> = {}
+export const rippleMethodMapping: Record<string, MethodComponent> = {
+  getAddress: GetAddressMethod,
+  signTransaction: SignTransactionMethod,
+}
 
 export function getMethodComponent(methodName: string): MethodComponent | null {
   return rippleMethodMapping[methodName] || null
 }
-
