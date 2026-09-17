@@ -187,14 +187,13 @@ async function recoverDKLS(files, passwords, fileNames) {
     eddsaKeys: [],
   };
 
-  if (schnorrWasmModule && eddsaKeyshareData.length >= 2) {
-    try {
-      const eddsa = exportKeyWithWasm(schnorrWasmModule, eddsaKeyshareData, partyIds);
-      const eddsaPubHex = bytesToHex(eddsa.publicKeyBytes);
-      const eddsaPrivHex = bytesToHex(eddsa.privateKeyBytes);
-      result.publicKeys.eddsa = eddsaPubHex;
-      result.eddsaKeys = deriveEdDSACoins(eddsaPrivHex, eddsaPubHex);
-    } catch {}
+  if (eddsaKeyshareData.length >= 2) {
+    if (!schnorrWasmModule) throw new Error("Schnorr WASM module not available for EdDSA recovery");
+    const eddsa = exportKeyWithWasm(schnorrWasmModule, eddsaKeyshareData, partyIds);
+    const eddsaPubHex = bytesToHex(eddsa.publicKeyBytes);
+    const eddsaPrivHex = bytesToHex(eddsa.privateKeyBytes);
+    result.publicKeys.eddsa = eddsaPubHex;
+    result.eddsaKeys = deriveEdDSACoins(eddsaPrivHex, eddsaPubHex);
   }
 
   return result;

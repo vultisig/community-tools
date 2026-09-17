@@ -73,6 +73,8 @@ Included test files in `examples/`:
 
 **Bitcoin** — Import the WIF key (e.g. `p2wpkh:L5P6V9e...`) into [Electrum](https://electrum.org/#download)
 
+**Solana, Sui, TON** — The EdDSA output is the raw Ed25519 scalar in hex (canonical big-endian), not a seed. Importing it requires a scalar-capable signer.
+
 Verify correctness by checking that the derived address matches what you had in Vultisig.
 
 ## Using as a Go Library

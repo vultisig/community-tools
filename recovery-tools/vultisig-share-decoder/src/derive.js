@@ -24,6 +24,8 @@ function hash160(data) {
 
 const b58check = base58check(sha256);
 
+const ED25519_SCALAR_BYTES = 32;
+
 function wifEncode(privKey, versionByte) {
   const buf = new Uint8Array(34);
   buf[0] = versionByte;
@@ -375,10 +377,20 @@ export function deriveECDSACoins(privKeyHex, chainCodeHex) {
 }
 
 // Reduce an EdDSA scalar mod L (ed25519 group order) and recompute the public key.
-// DKLS Schnorr key export can return raw scalars > L that need reduction.
-function processEdDSAScalar(rawPrivKey) {
+// The DKLS Schnorr export is little-endian; the canonical encoding is big-endian.
+function processEdDSAScalar(rawPrivKey, expectedPubKeyHex) {
+  if (rawPrivKey.length !== ED25519_SCALAR_BYTES) {
+    throw new Error(`EdDSA scalar must be ${ED25519_SCALAR_BYTES} bytes, got ${rawPrivKey.length}`);
+  }
+  if (!expectedPubKeyHex) {
+    throw new Error("EdDSA expected public key is required");
+  }
+
   const L = ed25519.Point.Fn.ORDER;
-  let scalar = BigInt("0x" + bytesToHex(rawPrivKey));
+  let scalar = BigInt("0x" + bytesToHex(rawPrivKey.slice().reverse()));
+  if (scalar === 0n) {
+    throw new Error("EdDSA scalar must not be zero");
+  }
   if (scalar >= L) {
     scalar = scalar % L;
   }
@@ -386,12 +398,15 @@ function processEdDSAScalar(rawPrivKey) {
   const privKey = hexToBytes(hexScalar);
   const pubPoint = ed25519.Point.BASE.multiply(scalar);
   const pubKey = hexToBytes(pubPoint.toHex());
+  if (bytesToHex(pubKey) !== expectedPubKeyHex) {
+    throw new Error("recovered EdDSA key does not match the vault public key");
+  }
   return { privKey, pubKey };
 }
 
-export function deriveEdDSACoins(privKeyHex, _pubKeyHex) {
+export function deriveEdDSACoins(privKeyHex, expectedPubKeyHex) {
   const rawPrivKey = hexToBytes(privKeyHex);
-  const { privKey, pubKey } = processEdDSAScalar(rawPrivKey);
+  const { privKey, pubKey } = processEdDSAScalar(rawPrivKey, expectedPubKeyHex);
   const processedPrivHex = bytesToHex(privKey);
   const processedPubHex = bytesToHex(pubKey);
   const results = [];
