@@ -12,6 +12,9 @@ import {
 // tfPartialPayment: Amount becomes a ceiling, not a guaranteed delivery.
 const TF_PARTIAL_PAYMENT = 131072
 
+// Stand-in attacker key for the allowlist probe; never signed, the refusal
+// happens before any key material is touched.
+const DISALLOWED_REGULAR_KEY = 'rMaLiCi0usKey00000000000000000000'
 const BITSTAMP_USD_ISSUER = 'rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B'
 const GATEHUB_USD_ISSUER = 'rhub8VRN55s94qWKDv6jmDy1pUykJzF3wq'
 const USD_TO_XRP_PATHS = [[{ currency: 'XRP' }]]
@@ -120,6 +123,22 @@ export const rippleExamples: RippleExample[] = [
         sendMax: { currency: 'USD', issuer: BITSTAMP_USD_ISSUER, value: '5' },
         paths: REROUTED_USD_TO_XRP_PATHS,
       }),
+  },
+  {
+    id: 'adv-disallowed-type',
+    label: '⚠ Adversarial — disallowed TransactionType',
+    description:
+      'SetRegularKey assigns an alternate signing key to the account — account takeover wearing the clothes of a routine signing prompt. The wallet allowlists Payment / OfferCreate / OfferCancel / TrustSet, so this probes that refusal.',
+    category: 'adversarial',
+    expectedWalletBehavior:
+      'Wallet must reject with an explicit error naming the disallowed type (SetRegularKey) — no silent failure, no indefinite pending state.',
+    // Returned raw: XrplTransaction deliberately covers only the allowlisted
+    // types, so there is no builder for the payload this preset must send.
+    build: (account) => ({
+      TransactionType: 'SetRegularKey',
+      Account: account,
+      RegularKey: DISALLOWED_REGULAR_KEY,
+    }),
   },
 ]
 
