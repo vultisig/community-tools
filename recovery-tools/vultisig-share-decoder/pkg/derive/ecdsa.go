@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
@@ -191,6 +192,25 @@ func deriveTron(privKey, pubKey []byte) (CoinKey, error) {
 		Address:       base58.Encode(addrWithChecksum),
 		HexPrivateKey: hex.EncodeToString(privKey),
 		HexPublicKey:  hex.EncodeToString(pubKeyBytes),
+	}, nil
+}
+
+const (
+	BTC_BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	XRP_BASE58_ALPHABET = "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"
+	XRP_ACCOUNT_VERSION = 0x00
+)
+
+func deriveRipple(privKey, pubKey []byte) (CoinKey, error) {
+	btcEncoded := base58.CheckEncode(btcutil.Hash160(pubKey), XRP_ACCOUNT_VERSION)
+	xrpEncoded := make([]byte, len(btcEncoded))
+	for i := range btcEncoded {
+		xrpEncoded[i] = XRP_BASE58_ALPHABET[strings.IndexByte(BTC_BASE58_ALPHABET, btcEncoded[i])]
+	}
+	return CoinKey{
+		Address:       string(xrpEncoded),
+		HexPrivateKey: hex.EncodeToString(privKey),
+		HexPublicKey:  hex.EncodeToString(pubKey),
 	}, nil
 }
 
