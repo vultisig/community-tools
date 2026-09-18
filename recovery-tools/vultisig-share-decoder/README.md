@@ -10,7 +10,7 @@ You can (and should) run this locally.
 
 ## Supported Recovery Networks
 
-**UTXO Chains:** Bitcoin, Bitcoin Cash, Dogecoin, Litecoin
+**UTXO Chains:** Bitcoin, Bitcoin Cash, Dash, Dogecoin, Litecoin
 
 **Cosmos/BFT Chains:** THORChain, MayaChain, Cosmos Hub, Kujira, dYdX, Terra Classic, Terra
 
@@ -72,6 +72,8 @@ Included test files in `examples/`:
 **Ethereum** — Import the hex private key into [MetaMask](https://metamask.io/)
 
 **Bitcoin** — Import the WIF key (e.g. `p2wpkh:L5P6V9e...`) into [Electrum](https://electrum.org/#download)
+
+**Dash** — Import the WIF key (compressed, starts with `X` — this is not a Bitcoin WIF) into a Dash wallet
 
 Verify correctness by checking that the derived address matches what you had in Vultisig.
 
