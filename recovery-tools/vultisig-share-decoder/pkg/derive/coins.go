@@ -37,6 +37,7 @@ func getECDSACoinDefs() []ecdsaCoinDef {
 		{"terra", "m/44'/118'/0'/0/0", cosmosDeriver("terra", "Terra")},
 		{"ethereum", "m/44'/60'/0'/0/0", deriveEthereum},
 		{"tron", "m/44'/195'/0'/0/0", deriveTron},
+		{"ripple", "m/44'/144'/0'/0/0", deriveRipple},
 	}
 }
 

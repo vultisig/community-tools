@@ -16,6 +16,8 @@ You can (and should) run this locally.
 
 **EVM Chains:** Ethereum, Tron
 
+**XRP Ledger:** XRP
+
 **EdDSA Chains:** Solana, Sui, TON
 
 ## Supported Schemes
@@ -73,6 +75,9 @@ Included test files in `examples/`:
 
 **Bitcoin** — Import the WIF key (e.g. `p2wpkh:L5P6V9e...`) into [Electrum](https://electrum.org/#download)
 
+**Solana, Sui, TON** — The EdDSA output is the raw Ed25519 scalar in hex, big-endian (not a seed). RFC 8032, libsodium, dalek and Solana expect the little-endian form, so reverse the bytes before importing.
+
+**XRP** — The output is the raw 32-byte secp256k1 private key in hex plus its classic address, not an XRPL family seed (`s...`) and not a WIF. XRPL tooling often writes secp256k1 keys as 33 bytes with a `00` prefix; xrpl.js accepts either form, so prepend `00` only if a tool rejects the 64-character key.
 **Dash** — Import the WIF key (compressed, starts with `X` — this is not a Bitcoin WIF) into a Dash wallet
 
 Verify correctness by checking that the derived address matches what you had in Vultisig.

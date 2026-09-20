@@ -8,7 +8,6 @@ import (
 	binanceTss "github.com/bnb-chain/tss-lib/v2/tss"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
 	"github.com/btcsuite/btcd/chaincfg"
-	edwards "github.com/decred/dcrd/dcrec/edwards/v2"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
 	"github.com/vultisig/community-tools/recovery-tools/vultisig-share-decoder/pkg/derive"
@@ -24,6 +23,7 @@ func recoverGG20(inputs []vault.FileInput, passwords []string) (*RecoveryResult,
 	}
 
 	var allSecrets []vault.TempLocalState
+	var eddsaPublicKeys []string
 	for i, input := range inputs {
 		password := ""
 		if i < len(passwords) {
@@ -34,6 +34,7 @@ func recoverGG20(inputs []vault.FileInput, passwords []string) (*RecoveryResult,
 		if err != nil {
 			return nil, fmt.Errorf("error parsing file %s: %w", input.Name, err)
 		}
+		eddsaPublicKeys = append(eddsaPublicKeys, v.PublicKeyEddsa)
 
 		localStates, err := vault.ExtractGG20LocalStates(v)
 		if err != nil {
@@ -65,9 +66,9 @@ func recoverGG20(inputs []vault.FileInput, passwords []string) (*RecoveryResult,
 		return nil, fmt.Errorf("error processing ECDSA keys: %w", err)
 	}
 
-	err = processGG20EdDSA(threshold, allSecrets, result)
-	if err != nil {
-		return nil, fmt.Errorf("error processing EdDSA keys: %w", err)
+	if err := processGG20EdDSA(threshold, allSecrets, eddsaPublicKeys, result); err != nil {
+		result.Error = fmt.Sprintf("EdDSA key recovery failed: %v", err)
+		result.EdDSAKeys = make([]derive.CoinKey, 0)
 	}
 
 	return result, nil
@@ -138,7 +139,12 @@ func processGG20ECDSA(threshold int, allSecrets []vault.TempLocalState, result *
 	return nil
 }
 
-func processGG20EdDSA(threshold int, allSecrets []vault.TempLocalState, result *RecoveryResult) error {
+func processGG20EdDSA(threshold int, allSecrets []vault.TempLocalState, eddsaPublicKeys []string, result *RecoveryResult) error {
+	expectedPubHex, err := resolveEdDSAPublicKey(eddsaPublicKeys)
+	if err != nil {
+		return err
+	}
+
 	vssShares := make(vss.Shares, len(allSecrets))
 
 	for i, s := range allSecrets {
@@ -162,8 +168,10 @@ func processGG20EdDSA(threshold int, allSecrets []vault.TempLocalState, result *
 		return fmt.Errorf("failed to reconstruct EdDSA key: %w", err)
 	}
 
-	tssPrivateKeyScalar := tssPrivateKey.Bytes()
-	privateKey, publicKey, _ := edwards.PrivKeyFromScalar(tssPrivateKeyScalar)
+	privateKey, publicKey, err := edDSAKeyFromScalar(tssPrivateKey.Bytes(), expectedPubHex)
+	if err != nil {
+		return err
+	}
 	pubKeyBytes := publicKey.Serialize()
 	privKeyBytes := privateKey.Serialize()
 
@@ -175,10 +183,7 @@ func processGG20EdDSA(threshold int, allSecrets []vault.TempLocalState, result *
 		result.RootKeyInfo.HexPrivKeyEdDSA = eddsaPrivHex
 	}
 
-	eddsaKeys, err := derive.DeriveEdDSACoins(privKeyBytes, pubKeyBytes)
-	if err != nil {
-		return fmt.Errorf("failed to derive EdDSA coin keys: %w", err)
-	}
+	eddsaKeys, _ := derive.DeriveEdDSACoins(privKeyBytes, pubKeyBytes)
 	result.EdDSAKeys = eddsaKeys
 
 	return nil
