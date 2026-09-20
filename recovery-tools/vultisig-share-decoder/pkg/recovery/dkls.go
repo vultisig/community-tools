@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
@@ -20,9 +21,11 @@ import (
 )
 
 type dklsKeyshares struct {
-	ECDSAKeyshares [][]byte
-	EdDSAKeyshares [][]byte
-	PartyIDs       []string
+	ECDSAKeyshares  [][]byte
+	EdDSAKeyshares  [][]byte
+	PartyIDs        []string
+	EdDSAPartyIDs   []string
+	EdDSAPublicKeys []string
 }
 
 type exportResult struct {
@@ -82,31 +85,40 @@ func recoverDKLS(inputs []vault.FileInput, passwords []string) (*RecoveryResult,
 	}
 
 	if len(keyshares.EdDSAKeyshares) >= 2 {
-		eddsaResult, err := exportEdDSAKey(keyshares.EdDSAKeyshares, keyshares.PartyIDs)
-		if err != nil {
-			return nil, fmt.Errorf("EdDSA key export failed: %w", err)
+		if err := recoverDKLEdDSA(keyshares, result); err != nil {
+			result.Error = fmt.Sprintf("EdDSA key recovery failed: %v", err)
+			result.EdDSAKeys = make([]derive.CoinKey, 0)
 		}
-
-		privKey, pubKey, err := edDSAKeyFromExport(eddsaResult.PrivateKey, hex.EncodeToString(eddsaResult.PublicKey))
-		if err != nil {
-			return nil, fmt.Errorf("EdDSA key export failed: %w", err)
-		}
-
-		privKeyBytes := privKey.Serialize()
-		pubKeyBytes := pubKey.Serialize()
-		eddsaPubHex := hex.EncodeToString(pubKeyBytes)
-		result.PublicKeys.EdDSA = eddsaPubHex
-		result.RootKeyInfo.HexPubKeyEdDSA = eddsaPubHex
-		result.RootKeyInfo.HexPrivKeyEdDSA = hex.EncodeToString(privKeyBytes)
-
-		eddsaKeys, err := derive.DeriveEdDSACoins(privKeyBytes, pubKeyBytes)
-		if err != nil {
-			return nil, fmt.Errorf("EdDSA address derivation failed: %w", err)
-		}
-		result.EdDSAKeys = eddsaKeys
 	}
 
 	return result, nil
+}
+
+func recoverDKLEdDSA(keyshares *dklsKeyshares, result *RecoveryResult) error {
+	expectedPubHex, err := resolveEdDSAPublicKey(keyshares.EdDSAPublicKeys)
+	if err != nil {
+		return err
+	}
+
+	eddsaResult, err := exportEdDSAKey(keyshares.EdDSAKeyshares, keyshares.EdDSAPartyIDs)
+	if err != nil {
+		return err
+	}
+
+	privKey, pubKey, err := edDSAKeyFromExport(eddsaResult.PrivateKey, expectedPubHex)
+	if err != nil {
+		return err
+	}
+
+	privKeyBytes := privKey.Serialize()
+	pubKeyBytes := pubKey.Serialize()
+	eddsaPubHex := hex.EncodeToString(pubKeyBytes)
+	result.PublicKeys.EdDSA = eddsaPubHex
+	result.RootKeyInfo.HexPubKeyEdDSA = eddsaPubHex
+	result.RootKeyInfo.HexPrivKeyEdDSA = hex.EncodeToString(privKeyBytes)
+	result.EdDSAKeys, _ = derive.DeriveEdDSACoins(privKeyBytes, pubKeyBytes)
+
+	return nil
 }
 
 func extractDKLSKeyshares(inputs []vault.FileInput, passwords []string) (*dklsKeyshares, error) {
@@ -115,9 +127,11 @@ func extractDKLSKeyshares(inputs []vault.FileInput, passwords []string) (*dklsKe
 	}
 
 	ks := &dklsKeyshares{
-		ECDSAKeyshares: make([][]byte, 0, len(inputs)),
-		EdDSAKeyshares: make([][]byte, 0, len(inputs)),
-		PartyIDs:       make([]string, 0, len(inputs)),
+		ECDSAKeyshares:  make([][]byte, 0, len(inputs)),
+		EdDSAKeyshares:  make([][]byte, 0, len(inputs)),
+		PartyIDs:        make([]string, 0, len(inputs)),
+		EdDSAPartyIDs:   make([]string, 0, len(inputs)),
+		EdDSAPublicKeys: make([]string, 0, len(inputs)),
 	}
 
 	for i, input := range inputs {
@@ -141,18 +155,20 @@ func extractDKLSKeyshares(inputs []vault.FileInput, passwords []string) (*dklsKe
 		}
 		ks.ECDSAKeyshares = append(ks.ECDSAKeyshares, ecdsaBytes)
 
+		if v.LocalPartyId == "" {
+			return nil, fmt.Errorf("no party ID found in vault file %s", input.Name)
+		}
+		ks.PartyIDs = append(ks.PartyIDs, v.LocalPartyId)
+
 		if len(v.KeyShares) > 1 && v.KeyShares[1].Keyshare != "" {
 			eddsaBytes, err := decodeKeyshare(v.KeyShares[1].Keyshare)
 			if err != nil {
 				return nil, fmt.Errorf("failed to decode EdDSA keyshare from %s: %w", input.Name, err)
 			}
 			ks.EdDSAKeyshares = append(ks.EdDSAKeyshares, eddsaBytes)
+			ks.EdDSAPartyIDs = append(ks.EdDSAPartyIDs, v.LocalPartyId)
+			ks.EdDSAPublicKeys = append(ks.EdDSAPublicKeys, v.PublicKeyEddsa)
 		}
-
-		if v.LocalPartyId == "" {
-			return nil, fmt.Errorf("no party ID found in vault file %s", input.Name)
-		}
-		ks.PartyIDs = append(ks.PartyIDs, v.LocalPartyId)
 	}
 
 	return ks, nil
@@ -308,28 +324,11 @@ func edDSAKeyFromExport(exportSecret []byte, expectedPubHex string) (*edwards.Pr
 		return nil, nil, fmt.Errorf("EdDSA export returned a %d-byte secret, want %d", len(exportSecret), edwards.PrivScalarSize)
 	}
 
-	// The Schnorr export is little-endian; edwards.PrivKeyFromScalar wants big-endian.
-	bigEndianSecret := make([]byte, len(exportSecret))
-	for i, b := range exportSecret {
-		bigEndianSecret[len(bigEndianSecret)-1-i] = b
-	}
+	// The Schnorr export is little-endian; the canonical scalar is big-endian.
+	bigEndianSecret := slices.Clone(exportSecret)
+	slices.Reverse(bigEndianSecret)
 
-	scalar := reduceEdDSAScalar(bigEndianSecret)
-	if new(big.Int).SetBytes(scalar).Sign() == 0 {
-		return nil, nil, fmt.Errorf("EdDSA export returned a zero scalar")
-	}
-
-	privKey, pubKey, err := edwards.PrivKeyFromScalar(scalar)
-	if err != nil {
-		return nil, nil, fmt.Errorf("EdDSA export is not a valid scalar: %w", err)
-	}
-
-	pubHex := hex.EncodeToString(pubKey.Serialize())
-	if pubHex != expectedPubHex {
-		return nil, nil, fmt.Errorf("recovered EdDSA public key %s does not match vault public key %s", pubHex, expectedPubHex)
-	}
-
-	return privKey, pubKey, nil
+	return edDSAKeyFromScalar(reduceEdDSAScalar(bigEndianSecret), expectedPubHex)
 }
 
 func decodeKeyshare(keyshareStr string) ([]byte, error) {

@@ -28,7 +28,7 @@ func demoEdDSAInputs(t *testing.T) []vault.FileInput {
 func TestVerifyDemoEdDSAExport(t *testing.T) {
 	inputs := demoEdDSAInputs(t)
 
-	v, err := vault.ParseVaultFromFile(inputs[0].Content, inputs[0].Name, "", vault.Web)
+	v, err := vault.ParseVaultFromFile(inputs[0].Content, inputs[0].Name, "", vault.CommandLine)
 	if err != nil {
 		t.Fatalf("failed to parse vault file: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestEdDSAKeyFromExportFailsClosed(t *testing.T) {
 		t.Fatalf("valid export rejected: %v", err)
 	}
 	if got := hex.EncodeToString(privKey.Serialize()); got != demoEdDSACanonicalScalar {
-		t.Error("recovered scalar is not the canonical big-endian form of the export")
+		t.Errorf("recovered scalar %s != canonical big-endian scalar %s", got, demoEdDSACanonicalScalar)
 	}
 	if got := hex.EncodeToString(pubKey.Serialize()); got != demoEdDSAPublicKey {
 		t.Errorf("derived public key %s != demo public key %s", got, demoEdDSAPublicKey)
@@ -106,5 +106,39 @@ func TestEdDSAKeyFromExportFailsClosed(t *testing.T) {
 	}
 	if _, _, err := edDSAKeyFromExport(make([]byte, edwards.PrivScalarSize), demoEdDSAPublicKey); err == nil {
 		t.Error("expected zero scalar to be rejected")
+	}
+}
+
+func TestEdDSACanonicalScalarPad(t *testing.T) {
+	scalar, err := hex.DecodeString(demoEdDSACanonicalScalar)
+	if err != nil {
+		t.Fatalf("failed to decode demo scalar: %v", err)
+	}
+
+	short := scalar[1:] // big.Int.Bytes() drops the leading zero byte
+	padded := make([]byte, edwards.PrivScalarSize)
+	copy(padded[edwards.PrivScalarSize-len(short):], short)
+
+	shortPriv, shortPub, err := edDSAKeyFromScalar(short, "")
+	if err != nil {
+		t.Fatalf("short scalar rejected: %v", err)
+	}
+	paddedPriv, paddedPub, err := edDSAKeyFromScalar(padded, "")
+	if err != nil {
+		t.Fatalf("padded scalar rejected: %v", err)
+	}
+
+	if got, want := hex.EncodeToString(shortPriv.Serialize()), hex.EncodeToString(paddedPriv.Serialize()); got != want {
+		t.Errorf("short scalar private key %s != padded private key %s", got, want)
+	}
+	if got, want := hex.EncodeToString(shortPub.Serialize()), hex.EncodeToString(paddedPub.Serialize()); got != want {
+		t.Errorf("short scalar public key %s != padded public key %s", got, want)
+	}
+
+	if _, _, err := edDSAKeyFromScalar(make([]byte, edwards.PrivScalarSize), demoEdDSAPublicKey); err == nil {
+		t.Error("expected zero scalar to be rejected")
+	}
+	if _, _, err := edDSAKeyFromScalar(padded, "ff"+demoEdDSAPublicKey[2:]); err == nil {
+		t.Error("expected wrong expected public key to be rejected")
 	}
 }

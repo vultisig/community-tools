@@ -18,6 +18,10 @@ function hexToBytes(h) {
   return hexCodec.decode(h);
 }
 
+function bytesEqual(a, b) {
+  return a.length === b.length && a.every((byte, i) => byte === b[i]);
+}
+
 function hash160(data) {
   return ripemd160(sha256(data));
 }
@@ -387,18 +391,15 @@ function processEdDSAScalar(rawPrivKey, expectedPubKeyHex) {
   }
 
   const L = ed25519.Point.Fn.ORDER;
-  let scalar = BigInt("0x" + bytesToHex(rawPrivKey.slice().reverse()));
+  const scalar = BigInt("0x" + bytesToHex(rawPrivKey.slice().reverse())) % L;
   if (scalar === 0n) {
     throw new Error("EdDSA scalar must not be zero");
   }
-  if (scalar >= L) {
-    scalar = scalar % L;
-  }
-  let hexScalar = scalar.toString(16).padStart(64, "0");
-  const privKey = hexToBytes(hexScalar);
-  const pubPoint = ed25519.Point.BASE.multiply(scalar);
-  const pubKey = hexToBytes(pubPoint.toHex());
-  if (bytesToHex(pubKey) !== expectedPubKeyHex) {
+
+  const privKey = hexToBytes(scalar.toString(16).padStart(64, "0"));
+  const pubKey = ed25519.Point.BASE.multiply(scalar).toBytes();
+  const expectedPubKey = hexToBytes(expectedPubKeyHex.replace(/^0x/i, ""));
+  if (!bytesEqual(pubKey, expectedPubKey)) {
     throw new Error("recovered EdDSA key does not match the vault public key");
   }
   return { privKey, pubKey };

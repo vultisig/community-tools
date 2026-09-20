@@ -149,16 +149,19 @@ async function recoverDKLS(files, passwords, fileNames) {
   const partyIds = [];
   const ecdsaKeyshareData = [];
   const eddsaKeyshareData = [];
+  const eddsaPartyIds = [];
 
   for (let i = 0; i < files.length; i++) {
     const vault = await parseVaultFile(files[i], passwords[i] || "");
     vaults.push(vault);
-    partyIds.push(vault.localPartyId || `party${i + 1}`);
+    const partyId = vault.localPartyId || `party${i + 1}`;
+    partyIds.push(partyId);
 
     ecdsaKeyshareData.push(decodeKeyshare(vault.keyShares[0].keyshare));
 
     if (vault.keyShares.length > 1 && vault.keyShares[1].keyshare) {
       eddsaKeyshareData.push(decodeKeyshare(vault.keyShares[1].keyshare));
+      eddsaPartyIds.push(partyId);
     }
   }
 
@@ -188,12 +191,19 @@ async function recoverDKLS(files, passwords, fileNames) {
   };
 
   if (eddsaKeyshareData.length >= 2) {
-    if (!schnorrWasmModule) throw new Error("Schnorr WASM module not available for EdDSA recovery");
-    const eddsa = exportKeyWithWasm(schnorrWasmModule, eddsaKeyshareData, partyIds);
-    const eddsaPubHex = bytesToHex(eddsa.publicKeyBytes);
-    const eddsaPrivHex = bytesToHex(eddsa.privateKeyBytes);
-    result.publicKeys.eddsa = eddsaPubHex;
-    result.eddsaKeys = deriveEdDSACoins(eddsaPrivHex, eddsaPubHex);
+    if (!schnorrWasmModule) {
+      result.error = "Schnorr WASM module not available — EdDSA keys were not recovered";
+    } else {
+      try {
+        const eddsa = exportKeyWithWasm(schnorrWasmModule, eddsaKeyshareData, eddsaPartyIds);
+        const eddsaPubHex = bytesToHex(eddsa.publicKeyBytes);
+        const eddsaPrivHex = bytesToHex(eddsa.privateKeyBytes);
+        result.publicKeys.eddsa = eddsaPubHex;
+        result.eddsaKeys = deriveEdDSACoins(eddsaPrivHex, eddsaPubHex);
+      } catch (err) {
+        result.error = `EdDSA key recovery failed: ${err.message}`;
+      }
+    }
   }
 
   return result;
