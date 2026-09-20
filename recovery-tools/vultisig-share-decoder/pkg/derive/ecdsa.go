@@ -116,6 +116,25 @@ func deriveBitcoinCash(privKey, pubKey []byte) (CoinKey, error) {
 	}, nil
 }
 
+const (
+	DASH_P2PKH_VERSION       = 0x4c
+	DASH_WIF_VERSION         = 0xcc
+	DASH_WIF_COMPRESSED_FLAG = 0x01
+)
+
+func deriveDash(privKey, pubKey []byte) (CoinKey, error) {
+	wifPayload := make([]byte, 0, len(privKey)+1)
+	wifPayload = append(wifPayload, privKey...)
+	wifPayload = append(wifPayload, DASH_WIF_COMPRESSED_FLAG)
+
+	return CoinKey{
+		Address:       base58.CheckEncode(btcutil.Hash160(pubKey), DASH_P2PKH_VERSION),
+		HexPrivateKey: hex.EncodeToString(privKey),
+		HexPublicKey:  hex.EncodeToString(pubKey),
+		WIFPrivateKey: base58.CheckEncode(wifPayload, DASH_WIF_VERSION),
+	}, nil
+}
+
 func deriveDogecoin(privKey, pubKey []byte) (CoinKey, error) {
 	net := &dogechaincfg.MainNetParams
 	dogePriv, _ := dogec.PrivKeyFromBytes(dogec.S256(), privKey)

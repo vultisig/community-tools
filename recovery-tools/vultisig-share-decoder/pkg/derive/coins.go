@@ -25,6 +25,7 @@ func getECDSACoinDefs() []ecdsaCoinDef {
 	return []ecdsaCoinDef{
 		{"bitcoin", "m/84'/0'/0'/0/0", deriveBitcoin},
 		{"bitcoinCash", "m/44'/145'/0'/0/0", deriveBitcoinCash},
+		{"dash", "m/44'/5'/0'/0/0", deriveDash},
 		{"dogecoin", "m/44'/3'/0'/0/0", deriveDogecoin},
 		{"litecoin", "m/84'/2'/0'/0/0", deriveLitecoin},
 		{"thorchain", "m/44'/931'/0'/0/0", cosmosDeriver("thor", "THORChain")},
