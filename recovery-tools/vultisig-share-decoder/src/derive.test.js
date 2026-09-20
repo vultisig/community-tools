@@ -32,6 +32,9 @@ assert.equal(
 assert.equal(byName.thorchain.address, "thor167h7nq5wuklekdeyrmsgy2p6gc3acaezp0wwql", "THOR address");
 assert.equal(byName.maya.address, "maya167h7nq5wuklekdeyrmsgy2p6gc3acaezpcszk0", "MAYA address");
 
+// Same demo root as pkg/derive/ripple_test.go; pins browser/native XRP parity.
+assert.equal(byName.ripple.address, "rDLY568PwDwGGzi7qVRg1KVPj7AV2qsCCt", "XRP address");
+
 for (const name of ["avalanche", "bsc", "arbitrum", "base", "optimism", "polygon"]) {
   assert.equal(byName[name].address, eth.address, `${name} should match ETH`);
 }

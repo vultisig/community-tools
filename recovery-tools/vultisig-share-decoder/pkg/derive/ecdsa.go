@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
-	"strings"
 
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
@@ -195,20 +194,30 @@ func deriveTron(privKey, pubKey []byte) (CoinKey, error) {
 	}, nil
 }
 
+// XRPL classic addresses are Bitcoin-layout base58check (version 0x00, HASH160
+// payload, double-SHA256 checksum) over a permuted alphabet, so encode with the
+// Bitcoin alphabet and remap each character.
 const (
-	BTC_BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
-	XRP_BASE58_ALPHABET = "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"
-	XRP_ACCOUNT_VERSION = 0x00
+	btcBase58Alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+	xrpBase58Alphabet = "rpshnaf39wBUDNEGHJKLM4PQRST7VWXYZ2bcdeCg65jkm8oFqi1tuvAxyz"
+	xrpAccountVersion = 0x00
 )
 
+var btcToXRPBase58 = func() [256]byte {
+	var m [256]byte
+	for i := 0; i < len(btcBase58Alphabet); i++ {
+		m[btcBase58Alphabet[i]] = xrpBase58Alphabet[i]
+	}
+	return m
+}()
+
 func deriveRipple(privKey, pubKey []byte) (CoinKey, error) {
-	btcEncoded := base58.CheckEncode(btcutil.Hash160(pubKey), XRP_ACCOUNT_VERSION)
-	xrpEncoded := make([]byte, len(btcEncoded))
-	for i := range btcEncoded {
-		xrpEncoded[i] = XRP_BASE58_ALPHABET[strings.IndexByte(BTC_BASE58_ALPHABET, btcEncoded[i])]
+	addr := []byte(base58.CheckEncode(btcutil.Hash160(pubKey), xrpAccountVersion))
+	for i, c := range addr {
+		addr[i] = btcToXRPBase58[c]
 	}
 	return CoinKey{
-		Address:       string(xrpEncoded),
+		Address:       string(addr),
 		HexPrivateKey: hex.EncodeToString(privKey),
 		HexPublicKey:  hex.EncodeToString(pubKey),
 	}, nil

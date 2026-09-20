@@ -10,13 +10,15 @@ import (
 // xrpl.js ripple-keypairs fixtures — upstream TEST keys only:
 // https://raw.githubusercontent.com/XRPLF/xrpl.js/main/packages/ripple-keypairs/test/fixtures/api.json
 const (
-	XRP_FIXTURE_PRIV = "d78b9735c3f26501c7337b8a5727fd53a6efdbc6aa55984f098488561f985e23"
-	XRP_FIXTURE_PUB  = "030d58eb48b4420b1f7b9df55087e0e29fef0e8468f9a6825b01ca2c361042d435"
-	XRP_FIXTURE_ADDR = "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1"
+	xrpFixturePriv = "d78b9735c3f26501c7337b8a5727fd53a6efdbc6aa55984f098488561f985e23"
+	xrpFixturePub  = "030d58eb48b4420b1f7b9df55087e0e29fef0e8468f9a6825b01ca2c361042d435"
+	xrpFixtureAddr = "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1"
 
-	LEADING_ZERO_PRIV = "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f"
-	LEADING_ZERO_PUB  = "036d6caac248af96f6afa7f904f550253a0f3ef3f5aa2fe6838a95b216691468e2"
-	LEADING_ZERO_ADDR = "raZbRYVpCr44u4Q9EDYy7MUpdrcjGSpGsL"
+	// Scalar 182 is the smallest private key whose HASH160 starts with a zero byte,
+	// so the address carries a second leading 'r' and exercises base58 zero padding.
+	leadingZeroHash160Priv = "00000000000000000000000000000000000000000000000000000000000000b6"
+	leadingZeroHash160Pub  = "02a076cacf92cc467c94ed72da5b9961395dacf1a224b157559169e4ea2b19a602"
+	leadingZeroHash160Addr = "rrapgvyfqzaiLdjszeegPUjYfLuaAezaHv"
 )
 
 func TestDeriveRippleVector(t *testing.T) {
@@ -26,8 +28,8 @@ func TestDeriveRippleVector(t *testing.T) {
 		pub  string
 		addr string
 	}{
-		{"xrpl.js fixture", XRP_FIXTURE_PRIV, XRP_FIXTURE_PUB, XRP_FIXTURE_ADDR},
-		{"leading zero private key", LEADING_ZERO_PRIV, LEADING_ZERO_PUB, LEADING_ZERO_ADDR},
+		{"xrpl.js fixture", xrpFixturePriv, xrpFixturePub, xrpFixtureAddr},
+		{"leading zero HASH160", leadingZeroHash160Priv, leadingZeroHash160Pub, leadingZeroHash160Addr},
 	}
 
 	for _, tt := range tests {
