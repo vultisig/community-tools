@@ -8,14 +8,14 @@ export interface Utxo {
 
 export type UtxoWithHex = Utxo & { hex?: string }
 
-type UtxoChainName = 'bitcoin' | 'bitcoincash' | 'dogecoin' | 'litecoin'
+type BlockchairChain = 'bitcoin' | 'bitcoin-cash' | 'dogecoin' | 'litecoin'
 
-export function utxoNetworkTochain(network: UtxoNetwork): UtxoChainName {
+export function utxoNetworkTochain(network: UtxoNetwork): BlockchairChain {
   switch (network) {
     case 'BTC':
       return 'bitcoin'
     case 'BCH':
-      return 'bitcoincash'
+      return 'bitcoin-cash'
     case 'DOGE':
       return 'dogecoin'
     case 'LTC':
@@ -25,75 +25,118 @@ export function utxoNetworkTochain(network: UtxoNetwork): UtxoChainName {
   }
 }
 
-export interface GraphQLUtxoResponse {
-  oIndex: number
-  oTxHash: string
-  value: { value: string }
-  scriptHex?: string
-  oTxHex?: string
-  isCoinbase?: boolean
-  address?: string
+// Vultisig's Blockchair proxy — the same source the Vultisig SDK / extension use
+// for UTXO lookups. Override with VITE_BLOCKCHAIR_URL to point at another
+// Blockchair-compatible host.
+const BLOCKCHAIR_URL = import.meta.env.VITE_BLOCKCHAIR_URL || 'https://api.vultisig.com/blockchair'
+
+// Blockchair caps dashboards/address at 1000 UTXOs per page.
+const UTXO_PAGE_SIZE = 1000
+
+// Raw tx hex is fetched one txid at a time (the proxy does not accept
+// Blockchair's comma-separated batch form), so bound the fan-out.
+const RAW_TX_CONCURRENCY = 5
+
+interface BlockchairAddressResponse {
+  data: Record<
+    string,
+    {
+      address?: { unspent_output_count?: number }
+      utxo: Array<{
+        transaction_hash: string
+        index: number
+        value: number
+      }>
+    }
+  >
+}
+
+interface BlockchairRawTxResponse {
+  data: Record<string, { raw_transaction: string }>
+}
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Blockchair request failed (${response.status}) for ${url}`)
+  }
+  return response.json() as Promise<T>
+}
+
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const i = next++
+      results[i] = await fn(items[i])
+    }
+  })
+  await Promise.all(workers)
+  return results
 }
 
 export class UtxoQueryClient {
-  private api = 'https://gql-router.xdefi.services/graphql'
+  private chain: BlockchairChain
+  private address: string
 
-  constructor(
-    private network: UtxoNetwork,
-    private address: string
-  ) {}
+  constructor(network: UtxoNetwork, address: string) {
+    this.chain = utxoNetworkTochain(network)
+    // Blockchair keys BCH by the bare cashaddr; the `bitcoincash:` prefix
+    // form is not routable through the proxy.
+    this.address = network === 'BCH' ? address.replace(/^bitcoincash:/i, '') : address
+  }
 
   async fetch(): Promise<UtxoWithHex[]> {
-    const query = `query GetUnspentTxOutputsV5($address: String!, $page: Int!) {
-      ${utxoNetworkTochain(this.network)} {
-        unspentTxOutputsV5(address: $address, page: $page) {
-          oIndex
-          oTxHash
-          value {
-            value
-          }
-          scriptHex
-          oTxHex
-          isCoinbase
-          address
-        }
+    const utxos = await this.fetchUtxos()
+    if (utxos.length === 0) {
+      return []
+    }
+
+    // Every PSBT input here is built with nonWitnessUtxo, so each UTXO needs
+    // the full hex of the transaction that created it.
+    const txids = [...new Set(utxos.map((u) => u.hash))]
+    const hexes = await mapWithConcurrency(txids, RAW_TX_CONCURRENCY, (txid) => this.fetchRawTx(txid))
+    const hexByTxid = new Map(txids.map((txid, i) => [txid, hexes[i]]))
+
+    return utxos.map((utxo) => ({ ...utxo, hex: hexByTxid.get(utxo.hash) }))
+  }
+
+  private async fetchUtxos(): Promise<Utxo[]> {
+    const utxos: Utxo[] = []
+
+    for (let offset = 0; ; offset += UTXO_PAGE_SIZE) {
+      const url = `${BLOCKCHAIR_URL}/${this.chain}/dashboards/address/${this.address}?limit=${UTXO_PAGE_SIZE}&offset=${offset}`
+      const page = await getJson<BlockchairAddressResponse>(url)
+      const entry = page.data?.[this.address] ?? Object.values(page.data ?? {})[0]
+      const pageUtxos = entry?.utxo ?? []
+
+      for (const u of pageUtxos) {
+        utxos.push({ hash: u.transaction_hash, index: u.index, value: BigInt(u.value) })
       }
-    }`
 
-    return fetch(this.api, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'apollographql-client-name': 'docs-indexers-api',
-        'apollographql-client-version': 'v1.0',
-      },
-      body: JSON.stringify({
-        query,
-        variables: { address: this.address, page: 0 },
-      }),
-    })
-      .then((response) => response.json())
-      .then((result) => {
-        if (result.errors) {
-          throw new Error(`GraphQL errors: ${JSON.stringify(result.errors)}`)
-        }
+      const expected = entry?.address?.unspent_output_count
+      const done =
+        pageUtxos.length < UTXO_PAGE_SIZE || (expected !== undefined && utxos.length >= expected)
+      if (done) {
+        break
+      }
+    }
 
-        const chain = utxoNetworkTochain(this.network)
-        const utxos = result.data?.[chain]?.unspentTxOutputsV5 as GraphQLUtxoResponse[] | undefined
+    return utxos
+  }
 
-        if (!utxos) {
-          return []
-        }
-
-        return utxos.map(
-          (x: GraphQLUtxoResponse): UtxoWithHex => ({
-            value: BigInt(x.value.value),
-            index: x.oIndex,
-            hash: x.oTxHash,
-            hex: x.oTxHex,
-          })
-        )
-      })
+  private async fetchRawTx(txid: string): Promise<string> {
+    const url = `${BLOCKCHAIR_URL}/${this.chain}/raw/transaction/${txid}`
+    const result = await getJson<BlockchairRawTxResponse>(url)
+    const hex = result.data?.[txid]?.raw_transaction
+    if (!hex) {
+      throw new Error(`Raw transaction hex not available for ${txid}`)
+    }
+    return hex
   }
 }
-
