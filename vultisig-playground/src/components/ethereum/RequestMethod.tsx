@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { DEFAULT_TYPED_DATA } from './SignTypedDataV4Method'
+import { DEFAULT_TYPED_DATA, EMPTY_BYTES_TYPED_DATA } from './SignTypedDataV4Method'
 
 interface RequestMethodProps {
   provider: unknown
@@ -8,16 +8,35 @@ interface RequestMethodProps {
   onAccountUpdate?: (accounts: string[]) => void
 }
 
-type ActionId = 'eth_accounts' | 'eth_requestAccounts' | 'eth_sendTransaction' | 'eth_signTypedData_v4'
+type ActionId =
+  | 'eth_accounts'
+  | 'eth_requestAccounts'
+  | 'eth_sendTransaction'
+  | 'eth_signTypedData_v4'
+  | 'eth_signTypedData_v3'
+  | 'eth_signTypedData'
 
 const ACTIONS: Array<{ id: ActionId; label: string; description: string }> = [
   { id: 'eth_accounts', label: 'eth_accounts', description: 'Get connected accounts' },
   { id: 'eth_requestAccounts', label: 'eth_requestAccounts', description: 'Request user to connect accounts' },
   { id: 'eth_sendTransaction', label: 'eth_sendTransaction', description: 'Send transaction (returns tx hash)' },
   { id: 'eth_signTypedData_v4', label: 'eth_signTypedData_v4', description: 'Sign EIP-712 typed data' },
+  { id: 'eth_signTypedData_v3', label: 'eth_signTypedData_v3', description: 'Sign EIP-712 typed data (v3 alias)' },
+  { id: 'eth_signTypedData', label: 'eth_signTypedData', description: 'Sign EIP-712 typed data (legacy alias)' },
 ]
 
 const ACCOUNT_ACTIONS: ActionId[] = ['eth_accounts', 'eth_requestAccounts']
+
+type TypedDataPresetId = 'default' | 'emptyBytes'
+
+const TYPED_DATA_PRESETS: Array<{ id: TypedDataPresetId; label: string; json: string }> = [
+  { id: 'default', label: 'Large order payload (default)', json: DEFAULT_TYPED_DATA },
+  {
+    id: 'emptyBytes',
+    label: 'Empty bytes fields — regression vultisig-windows#4731 (wallet must reject with a clear error)',
+    json: EMPTY_BYTES_TYPED_DATA,
+  },
+]
 
 // 0.0001 ETH in wei (hex for eth_sendTransaction)
 const DEFAULT_VALUE_HEX = '0x5af3107a4000'
@@ -29,6 +48,7 @@ export function RequestMethod({ provider, onResult, onError, onAccountUpdate }: 
   const [value, setValue] = useState<string>(DEFAULT_VALUE_HEX)
   const [data, setData] = useState<string>('0x')
   const [signerAddress, setSignerAddress] = useState<string>('')
+  const [typedDataPreset, setTypedDataPreset] = useState<TypedDataPresetId>('default')
   const [typedDataJson, setTypedDataJson] = useState<string>(DEFAULT_TYPED_DATA)
   const [loading, setLoading] = useState<boolean>(false)
 
@@ -79,7 +99,7 @@ export function RequestMethod({ provider, onResult, onError, onAccountUpdate }: 
             ],
           }
         : {
-            method: 'eth_signTypedData_v4',
+            method: action,
             params: [signerAddress.trim(), typedDataJson.trim()],
           }
 
@@ -189,6 +209,27 @@ export function RequestMethod({ provider, onResult, onError, onAccountUpdate }: 
               placeholder="0x..."
               className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Payload preset</label>
+            <select
+              value={typedDataPreset}
+              onChange={(e) => {
+                const preset = TYPED_DATA_PRESETS.find((p) => p.id === e.target.value)
+                if (preset) {
+                  setTypedDataPreset(preset.id)
+                  setTypedDataJson(preset.json)
+                  onResult(undefined)
+                }
+              }}
+              className="w-full px-3 py-2 text-xs font-mono border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+            >
+              {TYPED_DATA_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
           </div>
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">

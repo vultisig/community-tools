@@ -90,7 +90,42 @@ const DEFAULT_TYPED_DATA = `{
   }
 }`
 
-export { DEFAULT_TYPED_DATA }
+// Regression payload for vultisig/vultisig-windows#4731: an automation-order
+// style payload where bytes fields hold "" instead of "0x". ethers v6
+// TypedDataEncoder rejects "" with `invalid BytesLike value (argument="value",
+// value="")` while MetaMask's signer tolerates it — the wallet must reject
+// this loudly at request time with an error naming the offending fields.
+const EMPTY_BYTES_TYPED_DATA = `{
+  "domain": {
+    "name": "Automation Order",
+    "version": "1",
+    "chainId": 8453,
+    "verifyingContract": "0x1111111111111111111111111111111111111111"
+  },
+  "primaryType": "Order",
+  "types": {
+    "EIP712Domain": [
+      { "name": "name", "type": "string" },
+      { "name": "version", "type": "string" },
+      { "name": "chainId", "type": "uint256" },
+      { "name": "verifyingContract", "type": "address" }
+    ],
+    "Order": [
+      { "name": "owner", "type": "address" },
+      { "name": "tokenId", "type": "uint256" },
+      { "name": "salt", "type": "bytes32" },
+      { "name": "extraData", "type": "bytes" }
+    ]
+  },
+  "message": {
+    "owner": "0x2222222222222222222222222222222222222222",
+    "tokenId": "123456",
+    "salt": "",
+    "extraData": ""
+  }
+}`
+
+export { DEFAULT_TYPED_DATA, EMPTY_BYTES_TYPED_DATA }
 
 export function SignTypedDataV4Method({ provider, onResult, onError }: SignTypedDataV4MethodProps) {
   const [address, setAddress] = useState<string>('')
