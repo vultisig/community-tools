@@ -1,6 +1,16 @@
-import { decode as cborDecode } from 'cbor-x'
+import { Decoder } from 'cbor-x'
 import type { CardanoCip30ApiError, CardanoCip30FullApi, CardanoCip30InitialApi } from './types'
-import { fromHex } from './cbor'
+import { fromHex } from './cbor.ts'
+
+/**
+ * Cardano CBOR keys maps by byte strings (multi-asset: policy id → asset name
+ * → quantity) and by small ints (Babbage outputs: 0=address, 1=value). cbor-x's
+ * default `decode` turns every map into a plain object and throws
+ * "Invalid property name type object" on the byte-string keys, so decode into
+ * real `Map`s instead.
+ */
+const cardanoDecoder = new Decoder({ mapsAsObjects: false, useRecords: false })
+const cborDecode = (bytes: Uint8Array): unknown => cardanoDecoder.decode(bytes)
 
 /**
  * Calls provider.enable() to retrieve the CIP-30 full API.
@@ -62,32 +72,7 @@ function toHexLocal(bytes: Uint8Array): string {
 
 /** Decodes a CBOR value (lovelace-only uint OR [lovelace, multiasset]). */
 export function decodeCardanoValue(bytes: Uint8Array): DecodedBalance {
-  const decoded = cborDecode(bytes) as DecodedValue
-  let lovelace: bigint
-  let multiAsset: MultiAsset | null = null
-
-  if (Array.isArray(decoded)) {
-    lovelace = BigInt(decoded[0])
-    multiAsset = decoded[1]
-  } else {
-    lovelace = BigInt(decoded)
-  }
-
-  const assets: DecodedAsset[] = []
-  if (multiAsset instanceof Map) {
-    for (const [policy, inner] of multiAsset.entries()) {
-      if (!(inner instanceof Map)) continue
-      for (const [name, qty] of inner.entries()) {
-        assets.push({
-          policyId: toHexLocal(policy),
-          assetName: toHexLocal(name),
-          quantity: BigInt(qty).toString(),
-        })
-      }
-    }
-  }
-
-  return { lovelace: lovelace.toString(), assets }
+  return valueToBalance(cborDecode(bytes) as DecodedValue)
 }
 
 export interface DecodedUtxo {
