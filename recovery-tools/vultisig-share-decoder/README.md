@@ -10,7 +10,7 @@ You can (and should) run this locally.
 
 ## Supported Recovery Networks
 
-**UTXO Chains:** Bitcoin, Bitcoin Cash, Dash, Dogecoin, Litecoin
+**UTXO Chains:** Bitcoin, Bitcoin Cash, Dash, Dogecoin, Litecoin, Zcash (transparent `t1` address only; shielded funds are not recoverable with this tool)
 
 **Cosmos/BFT Chains:** THORChain, MayaChain, Cosmos Hub, Kujira, dYdX, Terra Classic, Terra
 

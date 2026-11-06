@@ -382,6 +382,7 @@ const COIN_ICONS = {
   dogecoin: "dogecoin",
   litecoin: "litecoin",
   dash: "dash",
+  zcash: "zcash",
   thorchain: "thorchain",
   maya: "maya",
   mayachain: "maya",

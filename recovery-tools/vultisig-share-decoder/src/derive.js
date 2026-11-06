@@ -108,6 +108,20 @@ function deriveDashAddress(privKey, pubKey) {
   };
 }
 
+// Zcash mainnet transparent ("t1") prefixes, from zcash/zcash src/chainparams.cpp CMainParams.
+const ZCASH_P2PKH_VERSION = [0x1c, 0xb8];
+
+function deriveZcashAddress(privKey, pubKey) {
+  const h = hash160(pubKey);
+  const buf = new Uint8Array(ZCASH_P2PKH_VERSION.length + h.length);
+  buf.set(ZCASH_P2PKH_VERSION);
+  buf.set(h, ZCASH_P2PKH_VERSION.length);
+  return {
+    address: b58check.encode(buf),
+    wif: wifEncode(privKey, 0x80),
+  };
+}
+
 function deriveCosmosAddress(pubKey, hrp) {
   const h = hash160(pubKey);
   const words = bech32.toWords(h);
@@ -286,6 +300,7 @@ const ECDSA_COINS = [
   { name: "dogecoin", path: "m/44'/3'/0'/0/0", derive: deriveDogecoinAddress },
   { name: "litecoin", path: "m/84'/2'/0'/0/0", derive: deriveLitecoinAddress },
   { name: "dash", path: "m/44'/5'/0'/0/0", derive: deriveDashAddress },
+  { name: "zcash", path: "m/44'/133'/0'/0/0", derive: deriveZcashAddress },
 
   // Cosmos chains
   {

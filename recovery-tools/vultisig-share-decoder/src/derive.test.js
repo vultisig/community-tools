@@ -35,6 +35,11 @@ assert.equal(byName.maya.address, "maya167h7nq5wuklekdeyrmsgy2p6gc3acaezpcszk0",
 // Same demo root as pkg/derive/ripple_test.go; pins browser/native XRP parity.
 assert.equal(byName.ripple.address, "rDLY568PwDwGGzi7qVRg1KVPj7AV2qsCCt", "XRP address");
 
+// Same demo root as pkg/derive/zcash_test.go; pins browser/native ZEC parity.
+assert.equal(byName.zcash.derivePath, "m/44'/133'/0'/0/0", "ZEC path");
+assert.equal(byName.zcash.address, "t1QPipxS1gZZDmthpUJeSFjcuP4PRmPsFV6", "ZEC address");
+assert.equal(byName.zcash.wifPrivateKey, "L3zqbw6m3WKfmBJVK5Ghjch4Ywzax8FbU7oxMnkBmU1ti14fj74G", "ZEC WIF");
+
 for (const name of ["avalanche", "bsc", "arbitrum", "base", "optimism", "polygon"]) {
   assert.equal(byName[name].address, eth.address, `${name} should match ETH`);
 }
