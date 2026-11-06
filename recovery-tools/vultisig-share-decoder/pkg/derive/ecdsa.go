@@ -117,21 +117,44 @@ func deriveBitcoinCash(privKey, pubKey []byte) (CoinKey, error) {
 }
 
 const (
-	DASH_P2PKH_VERSION       = 0x4c
-	DASH_WIF_VERSION         = 0xcc
-	DASH_WIF_COMPRESSED_FLAG = 0x01
+	WIF_COMPRESSED_FLAG = 0x01
+	DASH_P2PKH_VERSION  = 0x4c
+	DASH_WIF_VERSION    = 0xcc
 )
 
-func deriveDash(privKey, pubKey []byte) (CoinKey, error) {
-	wifPayload := make([]byte, 0, len(privKey)+1)
-	wifPayload = append(wifPayload, privKey...)
-	wifPayload = append(wifPayload, DASH_WIF_COMPRESSED_FLAG)
+func compressedWIF(privKey []byte, version byte) string {
+	payload := make([]byte, 0, len(privKey)+1)
+	payload = append(payload, privKey...)
+	payload = append(payload, WIF_COMPRESSED_FLAG)
+	return base58.CheckEncode(payload, version)
+}
 
+func deriveDash(privKey, pubKey []byte) (CoinKey, error) {
 	return CoinKey{
 		Address:       base58.CheckEncode(btcutil.Hash160(pubKey), DASH_P2PKH_VERSION),
 		HexPrivateKey: hex.EncodeToString(privKey),
 		HexPublicKey:  hex.EncodeToString(pubKey),
-		WIFPrivateKey: base58.CheckEncode(wifPayload, DASH_WIF_VERSION),
+		WIFPrivateKey: compressedWIF(privKey, DASH_WIF_VERSION),
+	}, nil
+}
+
+// Zcash mainnet transparent ("t1") prefixes, from zcash/zcash src/chainparams.cpp CMainParams.
+const (
+	ZCASH_P2PKH_VERSION_HI = 0x1c
+	ZCASH_P2PKH_VERSION_LO = 0xb8
+	ZCASH_WIF_VERSION      = 0x80
+)
+
+// deriveZcash returns the transparent address only; shielded keys are not recoverable here.
+func deriveZcash(privKey, pubKey []byte) (CoinKey, error) {
+	// CheckEncode takes one version byte, so the second one leads the payload.
+	payload := append([]byte{ZCASH_P2PKH_VERSION_LO}, btcutil.Hash160(pubKey)...)
+
+	return CoinKey{
+		Address:       base58.CheckEncode(payload, ZCASH_P2PKH_VERSION_HI),
+		HexPrivateKey: hex.EncodeToString(privKey),
+		HexPublicKey:  hex.EncodeToString(pubKey),
+		WIFPrivateKey: compressedWIF(privKey, ZCASH_WIF_VERSION),
 	}, nil
 }
 
